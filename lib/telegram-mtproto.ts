@@ -1,11 +1,182 @@
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
-import { TelegramClient } from "@mtcute/web";
+import * as quickCrypto from "react-native-quick-crypto";
+import { connectWs } from "@fuman/net";
+import {
+  IntermediatePacketCodec,
+  ObfuscatedPacketCodec,
+  type ICorePlatform,
+  type TelegramTransport,
+} from "@mtcute/core";
+import { TelegramClient } from "@mtcute/core/client.js";
 import { MemoryStorage } from "@mtcute/core";
+import { BaseCryptoProvider } from "@mtcute/core/utils.js";
+import { gzip, ungzip, inflate } from "pako";
 
 import { parsePublicTelegramPost } from "@/lib/telegram-link";
 
 const SESSION_KEY = "telegram_mtproto_bot_session_v1";
+
+type QuickCryptoApi = typeof quickCrypto & {
+  Buffer: typeof import("@craftzdog/react-native-buffer").Buffer;
+};
+
+const nativeCrypto = quickCrypto as QuickCryptoApi;
+const BufferImpl = nativeCrypto.Buffer;
+
+/**
+ * mtcute's web adapter uses @mtcute/wasm. Hermes does not expose WebAssembly,
+ * so this provider implements the small mtcute crypto surface using the native
+ * OpenSSL-backed react-native-quick-crypto module instead.
+ */
+class ReactNativeCryptoProvider extends BaseCryptoProvider {
+  sha1(data: Uint8Array): Uint8Array {
+    return new Uint8Array(nativeCrypto.createHash("sha1").update(data).digest());
+  }
+
+  sha256(data: Uint8Array): Uint8Array {
+    return new Uint8Array(nativeCrypto.createHash("sha256").update(data).digest());
+  }
+
+  async pbkdf2(
+    password: Uint8Array,
+    salt: Uint8Array,
+    iterations: number,
+    keylen = 64,
+    algo = "sha512",
+  ): Promise<Uint8Array> {
+    return new Uint8Array(
+      nativeCrypto.pbkdf2Sync(password, salt, iterations, keylen, algo),
+    );
+  }
+
+  async hmacSha256(data: Uint8Array, key: Uint8Array): Promise<Uint8Array> {
+    return new Uint8Array(
+      nativeCrypto.createHmac("sha256", key).update(data).digest(),
+    );
+  }
+
+  createAesCtr(key: Uint8Array, iv: Uint8Array) {
+    const cipher = nativeCrypto.createCipheriv(
+      "aes-256-ctr",
+      BufferImpl.from(key),
+      BufferImpl.from(iv),
+    );
+    return {
+      process: (data: Uint8Array) =>
+        new Uint8Array(cipher.update(BufferImpl.from(data))),
+      close: () => undefined,
+    };
+  }
+
+  createAesIge(key: Uint8Array, iv: Uint8Array) {
+    const initialIv = new Uint8Array(iv);
+    if (key.byteLength !== 32 || initialIv.byteLength !== 32) {
+      throw new Error("AES-256-IGE requires a 32-byte key and IV");
+    }
+
+    const encryptBlock = (block: Uint8Array) => {
+      const cipher = nativeCrypto.createCipheriv(
+        "aes-256-ecb",
+        BufferImpl.from(key),
+        null as any,
+      );
+      cipher.setAutoPadding(false);
+      return new Uint8Array(cipher.update(BufferImpl.from(block)));
+    };
+    const decryptBlock = (block: Uint8Array) => {
+      const decipher = nativeCrypto.createDecipheriv(
+        "aes-256-ecb",
+        BufferImpl.from(key),
+        null as any,
+      );
+      decipher.setAutoPadding(false);
+      return new Uint8Array(decipher.update(BufferImpl.from(block)));
+    };
+
+    return {
+      encrypt: (data: Uint8Array) => {
+        if (data.byteLength % 16 !== 0) throw new Error("AES-IGE data must be block aligned");
+        const output = new Uint8Array(data.byteLength);
+        let previousCipher = initialIv.slice(0, 16);
+        let previousPlain = initialIv.slice(16, 32);
+        for (let offset = 0; offset < data.byteLength; offset += 16) {
+          const mixed = new Uint8Array(16);
+          for (let i = 0; i < 16; i++) mixed[i] = data[offset + i] ^ previousCipher[i];
+          const encrypted = encryptBlock(mixed);
+          for (let i = 0; i < 16; i++) output[offset + i] = encrypted[i] ^ previousPlain[i];
+          previousCipher = output.slice(offset, offset + 16);
+          previousPlain = data.slice(offset, offset + 16);
+        }
+        return output;
+      },
+      decrypt: (data: Uint8Array) => {
+        if (data.byteLength % 16 !== 0) throw new Error("AES-IGE data must be block aligned");
+        const output = new Uint8Array(data.byteLength);
+        let previousCipher = initialIv.slice(0, 16);
+        let previousPlain = initialIv.slice(16, 32);
+        for (let offset = 0; offset < data.byteLength; offset += 16) {
+          const mixed = new Uint8Array(16);
+          for (let i = 0; i < 16; i++) mixed[i] = data[offset + i] ^ previousPlain[i];
+          const decrypted = decryptBlock(mixed);
+          for (let i = 0; i < 16; i++) output[offset + i] = decrypted[i] ^ previousCipher[i];
+          previousCipher = data.slice(offset, offset + 16);
+          previousPlain = output.slice(offset, offset + 16);
+        }
+        return output;
+      },
+    };
+  }
+
+  gzip(data: Uint8Array, maxSize: number): Uint8Array | null {
+    const compressed = gzip(data);
+    return compressed.byteLength > maxSize ? null : compressed;
+  }
+
+  gunzip(data: Uint8Array): Uint8Array {
+    return ungzip(data);
+  }
+
+  inflate(data: Uint8Array, maxSize: number): Uint8Array {
+    const result = inflate(data);
+    if (result.byteLength > maxSize) throw new Error("Inflated data exceeds the allowed size");
+    return result;
+  }
+
+  randomFill(buf: Uint8Array): void {
+    nativeCrypto.randomFillSync(buf);
+  }
+}
+
+const platform: ICorePlatform = {
+  beforeExit: () => () => undefined,
+  log: () => undefined,
+  getDefaultLogLevel: () => null,
+  getDeviceModel: () => "Android React Native",
+  onNetworkChanged: () => () => undefined,
+  isOnline: () => true,
+};
+
+const subdomains: Record<number, string> = {
+  1: "pluto",
+  2: "venus",
+  3: "aurora",
+  4: "vesta",
+  5: "flora",
+};
+
+const transport: TelegramTransport = {
+  connect: (dc, abortSignal) =>
+    connectWs(
+      {
+        url: `wss://${subdomains[dc.id]}.web.telegram.org/apiws${dc.testMode ? "_test" : ""}`,
+        implementation: WebSocket,
+        protocols: "binary",
+      },
+      abortSignal,
+    ),
+  packetCodec: () => new ObfuscatedPacketCodec(new IntermediatePacketCodec()),
+};
 
 export type TelegramCredentials = {
   apiId: number;
@@ -45,6 +216,9 @@ export async function resolvePublicTelegramVideo(
   const client = new TelegramClient({
     apiId: credentials.apiId,
     apiHash: credentials.apiHash,
+    crypto: new ReactNativeCryptoProvider(),
+    platform,
+    transport,
     storage: new MemoryStorage(),
     disableUpdates: true,
   });
@@ -56,21 +230,16 @@ export async function resolvePublicTelegramVideo(
     });
 
     const sessionValue = await client.exportSession();
-    if (sessionValue) {
-      await SecureStore.setItemAsync(SESSION_KEY, sessionValue);
-    }
+    if (sessionValue) await SecureStore.setItemAsync(SESSION_KEY, sessionValue);
 
     const [message] = await client.getMessages(post.channel, post.messageId);
     if (!message) throw new Error("Telegram post ကို မတွေ့ပါ။ Link နဲ့ channel access ကို စစ်ပါ။");
 
     const media = message.media;
-    if (!media || media.type !== "video") {
-      throw new Error("ဒီ post မှာ video file မပါပါ။");
-    }
+    if (!media || media.type !== "video") throw new Error("ဒီ post မှာ video file မပါပါ။");
 
     const rawName = media.fileName ?? `video_${post.messageId}.mp4`;
     const fileName = rawName.replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_").slice(0, 180);
-
     return {
       chatId: String(message.chat.id),
       messageId: post.messageId,
