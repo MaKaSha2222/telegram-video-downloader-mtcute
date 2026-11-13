@@ -35,7 +35,11 @@ chaquopy {
         version = '3.12'
         buildPython 'python3.12'
         pip {
+            // pyaes is bundled under src/main/python because PyPI publishes only an sdist.
+            options '--no-deps'
             install 'Telethon==1.41.2'
+            install 'rsa==4.9.1'
+            install 'pyasn1==0.6.5'
         }
     }
 }
