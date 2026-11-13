@@ -65,7 +65,7 @@ class ReactNativeCryptoProvider extends BaseCryptoProvider {
     return hmac(sha256, key, data);
   }
 
-  createAesCtr(key: Uint8Array, iv: Uint8Array) {
+  createAesCtr(key: Uint8Array, iv: Uint8Array, _encrypt: boolean) {
     const counter = new Uint8Array(iv);
     let keystream = new Uint8Array(0);
     const incrementCounter = () => {
@@ -245,8 +245,8 @@ export async function resolvePublicTelegramVideo(
     const sessionValue = await client.exportSession();
     if (sessionValue) await SecureStore.setItemAsync(SESSION_KEY, sessionValue);
 
-    const [message] = await withTimeout(
-      client.getMessages(post.channel, post.messageId),
+    const message = await withTimeout(
+      client.getMessageByLink(link.trim()),
       TELEGRAM_LOOKUP_TIMEOUT_MS,
       "Telegram post အချက်အလက် ရယူချိန် အလွန်ကြာနေပါပြီ။ Channel link နဲ့ Internet connection ကို စစ်ပြီး ထပ်ကြိုးစားပါ။",
     );
@@ -259,12 +259,16 @@ export async function resolvePublicTelegramVideo(
     const fileName = rawName.replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_").slice(0, 180);
     return {
       chatId: String(message.chat.id),
-      messageId: post.messageId,
+      messageId: message.id,
       fileId: media.fileId,
       fileName: fileName || `video_${post.messageId}.mp4`,
       mimeType: media.mimeType,
     };
   } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (/AUTH_KEY|SESSION|AUTH_RESTART|AUTH_KEY_UNREGISTERED/i.test(message)) {
+      await SecureStore.deleteItemAsync(SESSION_KEY).catch(() => undefined);
+    }
     throw safeError(error, credentials);
   } finally {
     await withTimeout(client.disconnect(), TELEGRAM_DISCONNECT_TIMEOUT_MS, "Telegram connection ပိတ်ချိန် အလွန်ကြာနေပါပြီ.").catch(() => undefined);
