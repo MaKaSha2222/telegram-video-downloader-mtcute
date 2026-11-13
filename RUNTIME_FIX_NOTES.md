@@ -1,31 +1,31 @@
-# Runtime алдааны засвар
+# Runtime error fix notes
 
-## Олдсон шалтгаан
+## Root causes found
 
-`teleproto` нь `cifrante`-ээр дамжуулан криптографийн санамсаргүй байт шаарддаг. Өмнөх хувилбарт `react-native-get-random-values` ашигласан бөгөөд энэ сан Android-ийн хуучин синхрон `NativeModules.RNGetRandomValues.getRandomBase64()` bridge-ийг дууддаг. Төслийн Android тохиргоонд React Native New Architecture асаалттай тул энэ хуучин синхрон bridge-д найдах нь runtime-д `undefined is not a function` үүсгэх эрсдэлтэй. Үүнээс болж Telegram нэвтрэх/пост унших шатанд зогсож, Bot API таталтын хүсэлтэд хүрэхгүй байв.
+The first Android crash was caused by the mtcute web adapter importing a WebAssembly implementation that Hermes does not provide. After that dependency was removed, the next crash was caused by the package-level `react-native-quick-crypto` CommonJS compatibility footer assigning `module.exports.default`; Hermes treated that export as a read-only ESM namespace property.
 
-## Хийсэн өөрчлөлт
+## Current fix
 
-- `react-native-get-random-values`-ийг dependency-гээс авсан.
-- Expo SDK 57-д тохирсон `expo-crypto` нэмсэн.
-- `index.js` эхлэх үед `expo-crypto.getRandomBytes()`-оор WebCrypto-ийн `crypto.getRandomValues()`-ийг нөхөж, 65,536 байтаас их хүсэлтийг Expo Crypto-ийн 1,024 байтын хязгаарыг баримтлан жижиг хэсгүүдээр авдаг болгосон.
-- `Object.hasOwn()` байхгүй Hermes runtime-д зориулсан fallback-ийг хэвээр үлдээж, app-ийн бусад кодоос өмнө ажиллуулдаг болгосон.
-- APK-ийн native library-г жижиглэсэн, ARM64 build тохиргоог хэвээр хадгалсан.
+- Removed `@mtcute/web` and the `@mtcute/wasm` dependency path.
+- Kept the existing mtcute core + WebSocket workflow and the local native Bot API download server.
+- Load only the native quick-crypto source modules (`cipher`, `hash`, `hmac`, `pbkdf2`, and `random`) through Metro `require()`, bypassing the incompatible package-root export footer.
+- Added the `process.nextTick` compatibility guard required by `readable-stream` on React Native.
+- Kept the `Object.hasOwn()` and Expo Crypto random-value fallbacks before Expo Router initializes.
+- Enabled native LTO/size optimization plus release R8/resource shrinking.
 
-## Шалгалт
+## Validation
 
-- `pnpm check`: амжилттай.
-- `pnpm test`: 31 test амжилттай, 1 test skip.
-- Expo Crypto Android эх кодод `getRandomValues` нь Expo Modules `Function`-оор зарлагдаж, Java `SecureRandom` ашигладгийг шалгасан.
-- Энэ sandbox-д физик Android төхөөрөмж холбож бодит Telegram video download хийх боломжгүй байсан; тиймээс төхөөрөмж дээрх end-to-end download тест амжилттай гэж энд батлаагүй.
+- TypeScript check: passed.
+- Vitest: 31 tests passed, 1 test skipped.
+- Android Hermes bundle export: passed.
+- Bundle scan: no mtcute WebAssembly implementation, mtcute web adapter, or incompatible quick-crypto package wrapper found.
+- A physical Android device was not available in this sandbox, so a real Telegram end-to-end download cannot be claimed as tested until the new APK is installed on the device.
 
-## APK дахин build хийх
-
-Android Studio эсвэл Android SDK/JDK 21 орчинд project root-оос:
+## Build
 
 ```bash
 cd android
 ./gradlew assembleRelease
 ```
 
-APK гарах зам: `android/app/build/outputs/apk/release/app-release.apk`.
+APK path: `android/app/build/outputs/apk/release/app-release.apk`.

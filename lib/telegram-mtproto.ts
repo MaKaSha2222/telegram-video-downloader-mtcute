@@ -28,9 +28,9 @@ const { randomFillSync } = require("react-native-quick-crypto/src/random");
 const SESSION_KEY = "telegram_mtproto_bot_session_v1";
 
 /**
- * mtcute's web adapter uses @mtcute/wasm. Hermes does not expose WebAssembly,
- * so this provider implements the small mtcute crypto surface using the native
- * OpenSSL-backed react-native-quick-crypto module instead.
+ * Hermes does not provide the browser WebAssembly runtime used by mtcute's web
+ * adapter, so this provider implements the small mtcute crypto surface using
+ * the native OpenSSL-backed react-native-quick-crypto module instead.
  */
 class ReactNativeCryptoProvider extends BaseCryptoProvider {
   sha1(data: Uint8Array): Uint8Array {

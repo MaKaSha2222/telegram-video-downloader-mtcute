@@ -1,10 +1,19 @@
-// teleproto/cifrante and some Telegram helpers use Object.hasOwn().
+// Some Telegram helpers use Object.hasOwn().
 if (typeof Object.hasOwn !== "function") {
   Object.defineProperty(Object, "hasOwn", {
     configurable: true,
     writable: true,
     value: (object, property) => Object.prototype.hasOwnProperty.call(object, property),
   });
+}
+
+// readable-stream, used by the native crypto source modules, expects the
+// Node-compatible scheduling hook that React Native does not always expose.
+if (typeof globalThis.process !== "object" || globalThis.process === null) {
+  globalThis.process = {};
+}
+if (typeof globalThis.process.nextTick !== "function") {
+  globalThis.process.nextTick = (callback, ...args) => setImmediate(callback, ...args);
 }
 
 // Fallback for environments where quick-crypto is unavailable. mtcute's
