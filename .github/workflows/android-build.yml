@@ -1,46 +1,62 @@
-name: Native Android APK Build
+name: Android APK Build
 
 on:
-  workflow_dispatch:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
-env:
-  ANDROID_PLATFORM: android-35
-  ANDROID_BUILD_TOOLS: 35.0.0
-  ANDROID_CMAKE: 3.22.1
-  ANDROID_NDK: 27.1.12297006
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-native-android:
+  build-android:
+    name: Test and build ARM64 APK
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - name: Checkout
+      - name: Check out repository
         uses: actions/checkout@v4
-      - name: Set up Java 21
+
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '17'
           cache: gradle
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Install Android SDK packages
-        run: |
-          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager -print -quit)"
-          "${SDKMANAGER}" "platform-tools" "platforms;${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}" "cmake;${ANDROID_CMAKE}" "ndk;${ANDROID_NDK}"
-          yes | "${SDKMANAGER}" --licenses >/dev/null
-      - name: Configure SDK path
-        run: echo "sdk.dir=${ANDROID_HOME}" > android/local.properties
-      - name: Build native release APK
+        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Install Python test dependency
+        run: python -m pip install -r requirements.txt
+
+      - name: Run Telegram resolver tests
+        run: PYTHONPATH=android/app/src/main/python python -m unittest discover -s tests -v
+
+      - name: Build debug APK
         working-directory: android
-        run: ./gradlew :app:assembleRelease --no-daemon --max-workers=2
-      - name: Upload release APK
+        run: ./gradlew --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Upload installable debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: telegram-video-downloader-native-release-apk
-          path: android/app/build/outputs/apk/release/*.apk
+          name: telegram-video-downloader-arm64-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 14

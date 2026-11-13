@@ -1,73 +1,35 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# Gradle and Android build outputs
+.gradle/
+**/build/
+**/.cxx/
+local.properties
+*.apk
+*.aab
+*.aar
+*.iml
 
-# dependencies
-node_modules/
-.pnpm-store/
-*.manus-starter-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
 
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
 
-# Native
-.kotlin/
-*.orig.*
+# Secrets and signing material
+.env
+.env.*
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
-*.mobileprovision
-
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
-.DS_Store
-*.pem
-
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-app-example
-
-# generated native folders
-/ios
-/android/.gradle/
-/android/**/build/
-/android/**/.cxx/
-/android/local.properties
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Logs
-logs
-*.log
 
 # OS
+.DS_Store
 Thumbs.db
-
-# Build files
-*.tgz
-*.tar.gz
-.cache/
-
-# Webdev artifacts (checkpoint zips, migrations, etc.)
-.webdev/
-
-__pycache__/
-*.py[cod]
