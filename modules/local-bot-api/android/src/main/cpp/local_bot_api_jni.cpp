@@ -17,7 +17,7 @@ std::string to_string(JNIEnv *env, jstring value) {
 }  // namespace
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_expo_modules_localbotapi_LocalBotApiModule_nativeStart(
+Java_space_manus_tgvidapp_nativeapi_LocalBotApiModule_nativeStart(
     JNIEnv *env, jclass, jlong api_id, jstring api_hash, jstring working_directory, jstring files_directory,
     jint port) {
   std::string error;
@@ -28,11 +28,11 @@ Java_expo_modules_localbotapi_LocalBotApiModule_nativeStart(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_expo_modules_localbotapi_LocalBotApiModule_nativeStop(JNIEnv *, jclass) {
+Java_space_manus_tgvidapp_nativeapi_LocalBotApiModule_nativeStop(JNIEnv *, jclass) {
   local_bot_api::Engine::instance().stop();
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_expo_modules_localbotapi_LocalBotApiModule_nativeIsRunning(JNIEnv *, jclass) {
+Java_space_manus_tgvidapp_nativeapi_LocalBotApiModule_nativeIsRunning(JNIEnv *, jclass) {
   return local_bot_api::Engine::instance().status().running ? JNI_TRUE : JNI_FALSE;
 }
