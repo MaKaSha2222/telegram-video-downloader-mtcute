@@ -1,0 +1,12 @@
+{
+  "platforms": ["android"],
+  "android": {
+    "modules": ["expo.modules.localbotapi.LocalBotApiModule"],
+    "publication": {
+      "groupId": "space.manus.tgvidapp",
+      "artifactId": "expo.modules.localbotapi",
+      "version": "1.0.0",
+      "repository": "local-maven-repo"
+    }
+  }
+}

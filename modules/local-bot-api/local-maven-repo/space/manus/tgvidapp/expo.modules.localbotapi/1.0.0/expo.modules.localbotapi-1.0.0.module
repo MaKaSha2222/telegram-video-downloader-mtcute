@@ -1,0 +1,101 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "space.manus.tgvidapp",
+    "module": "expo.modules.localbotapi",
+    "version": "1.0.0",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.3.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantReleaseApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "expo.modules.localbotapi-1.0.0.aar",
+          "url": "expo.modules.localbotapi-1.0.0.aar",
+          "size": 16818043,
+          "sha512": "588dd1d316483ee8d1db07584557e219c0e7cabfa457c4abc88e545d45629ab77bbc5549bff7cfb15117c07815f7e74c6422d9952e1a03d6b3036c4fae38ad84",
+          "sha256": "b4d88f2775eb639b5dc45598ec758ca14e3890844847490b93ceca5c7af60bd7",
+          "sha1": "468fc8898fb6d7d1a0d653adcacfe1a1a300dfbf",
+          "md5": "7b421fe6d56e40c44e598a9a79e51d45"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib-jdk7",
+          "version": {
+            "requires": "2.1.20"
+          }
+        },
+        {
+          "group": "org.jetbrains",
+          "module": "annotations",
+          "version": {
+            "requires": "23.0.0"
+          }
+        },
+        {
+          "group": "io.github.lukmccall.pika",
+          "module": "pika-api",
+          "version": {
+            "requires": "0.3.2"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "expo.modules.localbotapi-1.0.0.aar",
+          "url": "expo.modules.localbotapi-1.0.0.aar",
+          "size": 16818043,
+          "sha512": "588dd1d316483ee8d1db07584557e219c0e7cabfa457c4abc88e545d45629ab77bbc5549bff7cfb15117c07815f7e74c6422d9952e1a03d6b3036c4fae38ad84",
+          "sha256": "b4d88f2775eb639b5dc45598ec758ca14e3890844847490b93ceca5c7af60bd7",
+          "sha1": "468fc8898fb6d7d1a0d653adcacfe1a1a300dfbf",
+          "md5": "7b421fe6d56e40c44e598a9a79e51d45"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseSourcePublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "expo.modules.localbotapi-1.0.0-sources.jar",
+          "url": "expo.modules.localbotapi-1.0.0-sources.jar",
+          "size": 4011,
+          "sha512": "57d2ed1258e817c9817c3c430a54266848f81020efb179d6a96096b03ec50247e6e7f40b687f909659240200a84a5e5837f5a6bcd75fff63df9a1b6e4261299d",
+          "sha256": "9c95ac4470aa6db812dfd685e3bbbd08ecfb24bddcdce32df7e49d172445c2d7",
+          "sha1": "6e40ce609aabdd89f4969f229eef6140460cfad4",
+          "md5": "dd3cee4e9ed1133624fe896772f0f0a9"
+        }
+      ]
+    }
+  ]
+}
