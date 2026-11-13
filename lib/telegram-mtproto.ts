@@ -221,7 +221,11 @@ export async function resolvePublicTelegramVideo(
   }
 
   const post = parsePublicTelegramPost(link);
-  const savedSession = await SecureStore.getItemAsync(SESSION_KEY).catch(() => null);
+  // A session created by an older crypto/transport build can make Telegram
+  // close the WebSocket during authorization. Always start this short-lived
+  // resolver with a fresh in-memory bot session; retaining it is unnecessary
+  // and can turn a fixed app upgrade into a repeated timeout.
+  await SecureStore.deleteItemAsync(SESSION_KEY).catch(() => undefined);
   const client = new TelegramClient({
     apiId: credentials.apiId,
     apiHash: credentials.apiHash,
@@ -236,7 +240,6 @@ export async function resolvePublicTelegramVideo(
     await withTimeout(
       client.start({
         botToken: credentials.botToken,
-        session: savedSession ?? undefined,
       }),
       TELEGRAM_START_TIMEOUT_MS,
       "Telegram ချိတ်ဆက်မှု အချိန်ကုန်သွားပါပြီ။ Internet, API ID/API Hash နဲ့ Bot Token ကို စစ်ပြီး ထပ်ကြိုးစားပါ။",
