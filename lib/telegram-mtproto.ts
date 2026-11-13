@@ -26,6 +26,20 @@ const { pbkdf2Sync } = require("react-native-quick-crypto/src/pbkdf2");
 const { randomFillSync } = require("react-native-quick-crypto/src/random");
 
 const SESSION_KEY = "telegram_mtproto_bot_session_v1";
+const TELEGRAM_START_TIMEOUT_MS = 30_000;
+const TELEGRAM_LOOKUP_TIMEOUT_MS = 30_000;
+const TELEGRAM_DISCONNECT_TIMEOUT_MS = 5_000;
+
+function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), milliseconds);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer !== undefined) clearTimeout(timer);
+  });
+}
 
 /**
  * Hermes does not provide the browser WebAssembly runtime used by mtcute's web
@@ -227,15 +241,23 @@ export async function resolvePublicTelegramVideo(
   });
 
   try {
-    await client.start({
-      botToken: credentials.botToken,
-      session: savedSession ?? undefined,
-    });
+    await withTimeout(
+      client.start({
+        botToken: credentials.botToken,
+        session: savedSession ?? undefined,
+      }),
+      TELEGRAM_START_TIMEOUT_MS,
+      "Telegram ချိတ်ဆက်မှု အချိန်ကုန်သွားပါပြီ။ Internet, API ID/API Hash နဲ့ Bot Token ကို စစ်ပြီး ထပ်ကြိုးစားပါ။",
+    );
 
     const sessionValue = await client.exportSession();
     if (sessionValue) await SecureStore.setItemAsync(SESSION_KEY, sessionValue);
 
-    const [message] = await client.getMessages(post.channel, post.messageId);
+    const [message] = await withTimeout(
+      client.getMessages(post.channel, post.messageId),
+      TELEGRAM_LOOKUP_TIMEOUT_MS,
+      "Telegram post အချက်အလက် ရယူချိန် အလွန်ကြာနေပါပြီ။ Channel link နဲ့ Internet connection ကို စစ်ပြီး ထပ်ကြိုးစားပါ။",
+    );
     if (!message) throw new Error("Telegram post ကို မတွေ့ပါ။ Link နဲ့ channel access ကို စစ်ပါ။");
 
     const media = message.media;
@@ -253,6 +275,6 @@ export async function resolvePublicTelegramVideo(
   } catch (error) {
     throw safeError(error, credentials);
   } finally {
-    await client.disconnect().catch(() => undefined);
+    await withTimeout(client.disconnect(), TELEGRAM_DISCONNECT_TIMEOUT_MS, "Telegram connection ပိတ်ချိန် အလွန်ကြာနေပါပြီ.").catch(() => undefined);
   }
 }
