@@ -40,6 +40,7 @@ target_include_directories(localbotapi PRIVATE
   "${TELEGRAM_BOT_API_ROOT}/td/tdutils"
   "${TELEGRAM_BOT_API_ROOT}/td/tdtelegram"
   "${TELEGRAM_BOT_API_ROOT}/td/td/generate/auto"
+  "${CMAKE_CURRENT_BINARY_DIR}/td/td/generate/auto"
 )
 
 if(NOT ANDROID)
