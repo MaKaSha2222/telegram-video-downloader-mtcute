@@ -45,13 +45,15 @@ jobs:
       - name: Install Android SDK packages
         run: |
           echo "ANDROID_HOME=${ANDROID_HOME}"
-          sdkmanager --version
-          sdkmanager "platform-tools" \
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          test -x "${SDKMANAGER}"
+          "${SDKMANAGER}" --version
+          "${SDKMANAGER}" "platform-tools" \
             "platforms;${ANDROID_PLATFORM}" \
             "build-tools;${ANDROID_BUILD_TOOLS}" \
             "cmake;${ANDROID_CMAKE}" \
             "ndk;${ANDROID_NDK}"
-          yes | sdkmanager --licenses >/dev/null
+          yes | "${SDKMANAGER}" --licenses >/dev/null
 
       - name: Install JavaScript dependencies
         run: pnpm install --frozen-lockfile
