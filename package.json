@@ -19,6 +19,7 @@
     "qr": "node scripts/generate_qr.mjs"
   },
   "dependencies": {
+    "@craftzdog/react-native-buffer": "6.1.2",
     "@expo/metro-runtime": "~57.0.16",
     "@expo/vector-icons": "^15.0.2",
     "@fuman/net": "0.0.23",

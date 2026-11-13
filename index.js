@@ -1,14 +1,3 @@
-// mtcute needs WebCrypto (including crypto.subtle) on Android. This native
-// provider works with React Native's New Architecture and avoids the legacy
-// synchronous NativeModules random-values bridge.
-try {
-  const { install } = require("react-native-quick-crypto");
-  if (typeof install === "function") install();
-} catch (error) {
-  // Keep the fallback below so the app can report a useful runtime error.
-  console.warn("Native crypto provider was not installed", error);
-}
-
 // teleproto/cifrante and some Telegram helpers use Object.hasOwn().
 if (typeof Object.hasOwn !== "function") {
   Object.defineProperty(Object, "hasOwn", {

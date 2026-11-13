@@ -1,6 +1,5 @@
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
-import * as quickCrypto from "react-native-quick-crypto";
 import { connectWs } from "@fuman/net";
 import {
   IntermediatePacketCodec,
@@ -15,14 +14,18 @@ import { gzip, ungzip, inflate } from "pako";
 
 import { parsePublicTelegramPost } from "@/lib/telegram-link";
 
+// Do not import react-native-quick-crypto's package root: its CommonJS
+// compatibility footer assigns module.exports.default, which Hermes exposes as
+// a read-only ESM namespace property. These source modules contain the same
+// native implementations without that incompatible footer.
+const { Buffer: BufferImpl } = require("@craftzdog/react-native-buffer");
+const { createCipheriv, createDecipheriv } = require("react-native-quick-crypto/src/cipher");
+const { createHash } = require("react-native-quick-crypto/src/hash");
+const { createHmac } = require("react-native-quick-crypto/src/hmac");
+const { pbkdf2Sync } = require("react-native-quick-crypto/src/pbkdf2");
+const { randomFillSync } = require("react-native-quick-crypto/src/random");
+
 const SESSION_KEY = "telegram_mtproto_bot_session_v1";
-
-type QuickCryptoApi = typeof quickCrypto & {
-  Buffer: typeof import("@craftzdog/react-native-buffer").Buffer;
-};
-
-const nativeCrypto = quickCrypto as QuickCryptoApi;
-const BufferImpl = nativeCrypto.Buffer;
 
 /**
  * mtcute's web adapter uses @mtcute/wasm. Hermes does not expose WebAssembly,
@@ -31,11 +34,11 @@ const BufferImpl = nativeCrypto.Buffer;
  */
 class ReactNativeCryptoProvider extends BaseCryptoProvider {
   sha1(data: Uint8Array): Uint8Array {
-    return new Uint8Array(nativeCrypto.createHash("sha1").update(data).digest());
+    return new Uint8Array(createHash("sha1").update(data).digest());
   }
 
   sha256(data: Uint8Array): Uint8Array {
-    return new Uint8Array(nativeCrypto.createHash("sha256").update(data).digest());
+    return new Uint8Array(createHash("sha256").update(data).digest());
   }
 
   async pbkdf2(
@@ -46,18 +49,18 @@ class ReactNativeCryptoProvider extends BaseCryptoProvider {
     algo = "sha512",
   ): Promise<Uint8Array> {
     return new Uint8Array(
-      nativeCrypto.pbkdf2Sync(password, salt, iterations, keylen, algo),
+      pbkdf2Sync(password, salt, iterations, keylen, algo),
     );
   }
 
   async hmacSha256(data: Uint8Array, key: Uint8Array): Promise<Uint8Array> {
     return new Uint8Array(
-      nativeCrypto.createHmac("sha256", key).update(data).digest(),
+      createHmac("sha256", key).update(data).digest(),
     );
   }
 
   createAesCtr(key: Uint8Array, iv: Uint8Array) {
-    const cipher = nativeCrypto.createCipheriv(
+    const cipher = createCipheriv(
       "aes-256-ctr",
       BufferImpl.from(key),
       BufferImpl.from(iv),
@@ -76,7 +79,7 @@ class ReactNativeCryptoProvider extends BaseCryptoProvider {
     }
 
     const encryptBlock = (block: Uint8Array) => {
-      const cipher = nativeCrypto.createCipheriv(
+      const cipher = createCipheriv(
         "aes-256-ecb",
         BufferImpl.from(key),
         null as any,
@@ -85,7 +88,7 @@ class ReactNativeCryptoProvider extends BaseCryptoProvider {
       return new Uint8Array(cipher.update(BufferImpl.from(block)));
     };
     const decryptBlock = (block: Uint8Array) => {
-      const decipher = nativeCrypto.createDecipheriv(
+      const decipher = createDecipheriv(
         "aes-256-ecb",
         BufferImpl.from(key),
         null as any,
@@ -144,7 +147,7 @@ class ReactNativeCryptoProvider extends BaseCryptoProvider {
   }
 
   randomFill(buf: Uint8Array): void {
-    nativeCrypto.randomFillSync(buf);
+    randomFillSync(buf);
   }
 }
 
