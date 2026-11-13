@@ -7,6 +7,7 @@ import org.json.JSONObject
 
 /** Telethon is used only to inspect the public post and return a Bot API file_id. */
 object TelegramFileResolver {
+    @Synchronized
     fun resolve(link: String, credentials: TelegramCredentials): String {
         val payload = try {
             val module = Python.getInstance().getModule("telegram_resolver")

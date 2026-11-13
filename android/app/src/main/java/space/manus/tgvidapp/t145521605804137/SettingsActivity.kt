@@ -6,19 +6,22 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.InputType
-import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.Spinner
 import android.widget.TextView
 
 class SettingsActivity : Activity() {
     private lateinit var apiIdInput: EditText
     private lateinit var apiHashInput: EditText
     private lateinit var botTokenInput: EditText
+    private lateinit var parallelismSpinner: Spinner
     private lateinit var message: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,6 +30,7 @@ class SettingsActivity : Activity() {
         window.navigationBarColor = BG
         setContentView(buildScreen())
         loadSavedValues()
+        configureParallelismSpinner()
     }
 
     private fun buildScreen(): View {
@@ -47,12 +51,27 @@ class SettingsActivity : Activity() {
         content.addView(text("APP ဆက်တင်များ", 11, ACCENT, true))
         content.addView(text("Telegram API", 31, WHITE, true).apply { setPadding(0, dp(7), 0, dp(9)) })
         content.addView(text("API ID, API Hash နဲ့ Bot Token ကို ထည့်ပါ။ တန်ဖိုးတွေ Android Keystore ဖြင့် encryption လုပ်ပြီး ဒီစက်မှာသာ သိမ်းဆည်းပါတယ်။", 14, MUTED, false).apply {
-            setPadding(0, 0, 0, dp(28))
+            setPadding(0, 0, 0, dp(24))
         })
 
         apiIdInput = addField(content, "API ID", InputType.TYPE_CLASS_NUMBER)
         apiHashInput = addField(content, "API Hash", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
         botTokenInput = addField(content, "Bot Token", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+
+        content.addView(text("Download ပြိုင်တူလုပ်ဆောင်မှု", 15, WHITE, true).apply { setPadding(0, dp(8), 0, dp(7)) })
+        content.addView(text("တစ်ချိန်တည်း download လုပ်မည့် အများဆုံးဖိုင်အရေအတွက် (1–4)", 12, MUTED, false).apply {
+            setPadding(0, 0, 0, dp(8))
+        })
+        parallelismSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(
+                this@SettingsActivity,
+                android.R.layout.simple_spinner_item,
+                DownloadSettings.choices.map { "$it ဖိုင် တစ်ပြိုင်နက်" },
+            ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+            background = rounded(0xff121a20.toInt(), 14, 0xff27343a.toInt())
+            setPadding(dp(12), 0, dp(12), 0)
+        }
+        content.addView(parallelismSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)).apply { bottomMargin = dp(18) })
 
         message = text("", 13, SUCCESS, false).apply {
             visibility = View.GONE
@@ -62,16 +81,16 @@ class SettingsActivity : Activity() {
             topMargin = dp(8)
         })
         val save = Button(this).apply {
-            text = "လုံခြုံစွာ သိမ်းမည်"
-            textSize = 15f
+            text = "API ဆက်တင်များကို encrypted သိမ်းမည်"
+            textSize = 14f
             isAllCaps = false
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(0xff081011.toInt())
             background = rounded(ACCENT, 16)
             setOnClickListener { saveCredentials() }
         }
-        content.addView(save, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(54)).apply { topMargin = dp(20) })
-        content.addView(text("Telethon က public post မှ file_id ကိုသာ ရယူပါတယ်။ ဗီဒီယိုကို app အတွင်း Bot API Server က ဒေါင်းလုဒ်လုပ်ပါတယ်။", 12, MUTED, false).apply {
+        content.addView(save, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(54)).apply { topMargin = dp(18) })
+        content.addView(text("Telethon က public post မှ file_id ကို ရယူပါတယ်။ ဗီဒီယိုကို app အတွင်း Bot API Server က ရယူပြီး Download/TGMovies ထဲသို့ သိမ်းပါတယ်။ Remote fetch အတွင်း server က byte callback မပေးတဲ့အတွက် ရာခိုင်နှုန်းကို ဖိုင်သိမ်းဆည်းနေချိန်မှသာ ပြပါမယ်။", 12, MUTED, false).apply {
             setPadding(0, dp(18), 0, 0)
         })
         return scroll
@@ -89,7 +108,7 @@ class SettingsActivity : Activity() {
             setPadding(dp(15), 0, dp(15), 0)
             background = rounded(0xff121a20.toInt(), 14, 0xff27343a.toInt())
         }
-        parent.addView(edit, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(54)).apply { bottomMargin = dp(18) })
+        parent.addView(edit, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(54)).apply { bottomMargin = dp(16) })
         return edit
     }
 
@@ -100,8 +119,21 @@ class SettingsActivity : Activity() {
                 apiHashInput.setText(saved.apiHash)
                 botTokenInput.setText(saved.botToken)
             }
-        }.onFailure { error ->
-            showMessage(ErrorDisplay.format(error), true)
+        }.onFailure { error -> showMessage(ErrorDisplay.format(error), true) }
+        val current = DownloadSettings.parallelism(this)
+        parallelismSpinner.setSelection(DownloadSettings.choices.indexOf(current).coerceAtLeast(0))
+    }
+
+    private fun configureParallelismSpinner() {
+        parallelismSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selected = DownloadSettings.choices.getOrNull(position) ?: return
+                if (selected == DownloadSettings.parallelism(this@SettingsActivity)) return
+                DownloadSettings.setParallelism(this@SettingsActivity, selected)
+                LocalBotApiForegroundService.settingsChanged(this@SettingsActivity)
+                showMessage("Parallel download limit ကို $selected ဖိုင်အဖြစ် သိမ်းပြီးပါပြီ။", false)
+            }
         }
     }
 
