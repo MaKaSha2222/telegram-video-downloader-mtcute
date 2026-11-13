@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 
-import { addBotApiProgressListener, downloadWithLocalBotApi, getLocalBotApiStatus, isLocalBotApiAvailable, startLocalBotApi, type BotApiDownloadProgress } from "@/lib/local-bot-api";
-import { resolvePublicTelegramVideo } from "@/lib/telegram-mtproto";
+import { addBotApiProgressListener, downloadWithLocalBotApi, getLocalBotApiStatus, isLocalBotApiAvailable, resolveWithTelethon, startLocalBotApi, type BotApiDownloadProgress } from "@/lib/local-bot-api";
 import { loadTelegramCredentials, type SavedTelegramCredentials } from "@/lib/secure-config";
 
 export default function HomeScreen() {
@@ -64,14 +63,22 @@ export default function HomeScreen() {
       setServerReady(true);
 
       setStep("[2/3] Telegram post အချက်အလက်ကို ရယူနေပါတယ်…");
-      const video = await resolvePublicTelegramVideo(link, {
-        apiId: Number(credentials.apiId),
-        apiHash: credentials.apiHash,
-        botToken: credentials.botToken,
-      });
+      const video = await resolveWithTelethon(
+        Number(credentials.apiId),
+        credentials.apiHash,
+        credentials.botToken,
+        link,
+      );
 
-      setStep("[3/3] Bot API Server မှ video ကို ရယူနေပါတယ်…");
-      const result = await downloadWithLocalBotApi(credentials.botToken, video.fileId, video.fileName);
+      if (!video.fileId) {
+        throw new Error("Telethon က Local Bot API သုံးရန် file ID မရပါ။");
+      }
+      setStep("[3/3] Local Bot API Server မှ video ကို download လုပ်နေပါတယ်…");
+      const result = await downloadWithLocalBotApi(
+        credentials.botToken,
+        video.fileId,
+        video.fileName || `video_${video.messageId}.mp4`,
+      );
       setSavedUri(result.uri);
       setStage("Download ပြီးပါပြီ");
       setProgress({ phase: "complete", copiedBytes: result.sizeBytes, totalBytes: result.sizeBytes });

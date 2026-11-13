@@ -5,7 +5,7 @@
 ## လက်ရှိပါဝင်နေသောအပိုင်းများ
 
 - Telegram link ထည့်ရန် ပင်မမျက်နှာပြင်နှင့် API ID၊ API Hash၊ Bot Token ကို Android SecureStore ထဲသိမ်းရန် Settings မျက်နှာပြင်။
-- Public Telegram link ခွဲထုတ်ခြင်း၊ Bot API `file_id` ဖွဲ့စည်းခြင်းနှင့် app အတွင်း MTProto client အတွက် TypeScript code။
+- Public Telegram link ကို Telethon ဖြင့် resolve လုပ်ပြီး ရလာသော document reference မှ Local Bot API သုံးနိုင်သော `file_id` ဖွဲ့စည်းခြင်း။ Download ၏ main path သည် app အတွင်း Local Bot API server ၏ `getFile` ဖြစ်ပြီး Telethon direct download ကို main flow မှ ဖယ်ထားပါတယ်။
 - Link parser နှင့် `file_id` အတွက် unit test ၆ ခု။
 - Android target ABI ကို `arm64-v8a` တစ်ခုတည်းထားသော Expo configuration။
 - Android foreground-service permissions (`POST_NOTIFICATIONS`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_DATA_SYNC`) ကို configuration ထဲ ထည့်ထားပြီး native service မရှိသေးသည့်အတွက် အလုပ်လုပ်ပြီးပြီဟု မယူဆရသေးပါ။

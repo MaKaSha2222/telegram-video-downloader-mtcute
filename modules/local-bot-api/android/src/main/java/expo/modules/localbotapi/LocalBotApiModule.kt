@@ -4,6 +4,8 @@ import android.os.Bundle
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import com.chaquo.python.AndroidPlatform
+import com.chaquo.python.Python
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.File
@@ -40,6 +42,52 @@ class LocalBotApiModule : Module() {
 
     AsyncFunction("getStatus") {
       statusBundle()
+    }
+
+    AsyncFunction("resolveTelethon") { apiId: Int, apiHash: String, botToken: String, link: String ->
+      val context = appContext.reactContext ?: throw IllegalStateException("Android context မရပါ။")
+      if (!Python.isStarted()) Python.start(AndroidPlatform(context))
+      val sessionRoot = File(context.filesDir, "telethon").apply { mkdirs() }
+      val json = Python.getInstance()
+        .getModule("telethon_bridge")
+        .callAttr("resolve_media", apiId, apiHash, botToken, link, sessionRoot.absolutePath)
+        .toString()
+      val result = JSONObject(json)
+      Bundle().apply {
+        putString("channel", result.optString("channel"))
+        putLong("chatId", result.optLong("chat_id"))
+        putInt("messageId", result.optInt("message_id"))
+        putString("mediaType", result.optString("media_type"))
+        putString("mimeType", result.optString("mime_type"))
+        putString("fileName", result.optString("file_name"))
+        putLong("size", result.optLong("size"))
+        putLong("documentId", result.optLong("document_id"))
+        putLong("accessHash", result.optLong("access_hash"))
+        putLong("dcId", result.optLong("dc_id"))
+        putString("fileId", result.optString("file_id"))
+      }
+    }
+
+    AsyncFunction("downloadTelethonVideo") { apiId: Int, apiHash: String, botToken: String, link: String, fileName: String ->
+      val context = appContext.reactContext ?: throw IllegalStateException("Android context မရပါ။")
+      if (!Python.isStarted()) Python.start(AndroidPlatform(context))
+      val destinationRoot = File(context.filesDir, "Movies/TelegramVideo").apply { mkdirs() }.canonicalFile
+      val safeName = fileName.replace(Regex("[\\\\/:*?\"<>|\\u0000-\\u001f]"), "_")
+        .replace("..", "_").ifBlank { "video.mp4" }.take(180)
+      val destination = File(destinationRoot, safeName).canonicalFile
+      if (!destination.path.startsWith(destinationRoot.path + File.separator)) {
+        throw IllegalArgumentException("သိမ်းမည့် file name မမှန်ပါ။")
+      }
+      val sessionRoot = File(context.filesDir, "telethon").apply { mkdirs() }
+      val json = Python.getInstance()
+        .getModule("telethon_bridge")
+        .callAttr("download_media", apiId, apiHash, botToken, link, sessionRoot.absolutePath, destination.absolutePath)
+        .toString()
+      val result = JSONObject(json)
+      Bundle().apply {
+        putString("uri", Uri.fromFile(destination).toString())
+        putLong("sizeBytes", result.optLong("size"))
+      }
     }
 
     AsyncFunction("startServer") { apiId: Long, apiHash: String ->

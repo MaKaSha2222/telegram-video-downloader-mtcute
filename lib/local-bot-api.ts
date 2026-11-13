@@ -17,10 +17,26 @@ export type SavedVideo = {
   sizeBytes: number;
 };
 
+export type TelethonResolvedMedia = {
+  channel: string;
+  chatId: number;
+  messageId: number;
+  mediaType: string;
+  mimeType: string;
+  fileName: string;
+  size: number;
+  documentId: number;
+  accessHash: number;
+  dcId: number;
+  fileId: string;
+};
+
 type LocalBotApiNativeModule = {
   getStatus(): Promise<LocalBotApiStatus>;
   startServer(apiId: number, apiHash: string): Promise<LocalBotApiStatus>;
   stopServer(): Promise<void>;
+  resolveTelethon(apiId: number, apiHash: string, botToken: string, link: string): Promise<TelethonResolvedMedia>;
+  downloadTelethonVideo(apiId: number, apiHash: string, botToken: string, link: string, fileName: string): Promise<SavedVideo>;
   downloadVideo(botToken: string, fileId: string, fileName: string): Promise<SavedVideo>;
   addListener(eventName: "onDownloadProgress", listener: (progress: BotApiDownloadProgress) => void): EventSubscription;
 };
@@ -42,6 +58,27 @@ export async function startLocalBotApi(apiId: number, apiHash: string): Promise<
 export async function stopLocalBotApi(): Promise<void> {
   if (!nativeModule) return;
   await nativeModule.stopServer();
+}
+
+export async function resolveWithTelethon(
+  apiId: number,
+  apiHash: string,
+  botToken: string,
+  link: string,
+): Promise<TelethonResolvedMedia> {
+  if (!nativeModule) throw new Error("ဒီ Android build မှာ Telethon native module မပါသေးပါ။");
+  return nativeModule.resolveTelethon(apiId, apiHash, botToken, link);
+}
+
+export async function downloadWithTelethon(
+  apiId: number,
+  apiHash: string,
+  botToken: string,
+  link: string,
+  fileName: string,
+): Promise<SavedVideo> {
+  if (!nativeModule) throw new Error("ဒီ Android build မှာ Telethon native module မပါသေးပါ။");
+  return nativeModule.downloadTelethonVideo(apiId, apiHash, botToken, link, fileName);
 }
 
 export async function downloadWithLocalBotApi(
