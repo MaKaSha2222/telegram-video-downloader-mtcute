@@ -42,11 +42,10 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install Android SDK packages
         run: |
+          echo "ANDROID_HOME=${ANDROID_HOME}"
+          sdkmanager --version
           sdkmanager "platform-tools" \
             "platforms;${ANDROID_PLATFORM}" \
             "build-tools;${ANDROID_BUILD_TOOLS}" \
