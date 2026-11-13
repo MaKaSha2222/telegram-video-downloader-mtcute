@@ -1,4 +1,5 @@
 import * as SecureStore from "expo-secure-store";
+import { getRandomBytes } from "expo-crypto";
 import { Platform } from "react-native";
 import { connectWs } from "@fuman/net";
 import {
@@ -11,19 +12,13 @@ import { TelegramClient } from "@mtcute/core/client.js";
 import { MemoryStorage } from "@mtcute/core";
 import { BaseCryptoProvider } from "@mtcute/core/utils.js";
 import { gzip, ungzip, inflate } from "pako";
+import { ecb } from "@noble/ciphers/aes.js";
+import { hmac } from "@noble/hashes/hmac.js";
+import { pbkdf2 } from "@noble/hashes/pbkdf2.js";
+import { sha256, sha512 } from "@noble/hashes/sha2.js";
+import { sha1 } from "@noble/hashes/legacy.js";
 
 import { parsePublicTelegramPost } from "@/lib/telegram-link";
-
-// Do not import react-native-quick-crypto's package root: its CommonJS
-// compatibility footer assigns module.exports.default, which Hermes exposes as
-// a read-only ESM namespace property. These source modules contain the same
-// native implementations without that incompatible footer.
-const { Buffer: BufferImpl } = require("@craftzdog/react-native-buffer");
-const { createCipheriv, createDecipheriv } = require("react-native-quick-crypto/src/cipher");
-const { createHash } = require("react-native-quick-crypto/src/hash");
-const { createHmac } = require("react-native-quick-crypto/src/hmac");
-const { pbkdf2Sync } = require("react-native-quick-crypto/src/pbkdf2");
-const { randomFillSync } = require("react-native-quick-crypto/src/random");
 
 const SESSION_KEY = "telegram_mtproto_bot_session_v1";
 const TELEGRAM_START_TIMEOUT_MS = 30_000;
@@ -43,16 +38,16 @@ function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: stri
 
 /**
  * Hermes does not provide the browser WebAssembly runtime used by mtcute's web
- * adapter, so this provider implements the small mtcute crypto surface using
- * the native OpenSSL-backed react-native-quick-crypto module instead.
+ * adapter. This provider uses small audited pure-JavaScript noble primitives,
+ * keeping the Android runtime independent from native crypto wrappers.
  */
 class ReactNativeCryptoProvider extends BaseCryptoProvider {
   sha1(data: Uint8Array): Uint8Array {
-    return new Uint8Array(createHash("sha1").update(data).digest());
+    return sha1(data);
   }
 
   sha256(data: Uint8Array): Uint8Array {
-    return new Uint8Array(createHash("sha256").update(data).digest());
+    return sha256(data);
   }
 
   async pbkdf2(
@@ -62,26 +57,39 @@ class ReactNativeCryptoProvider extends BaseCryptoProvider {
     keylen = 64,
     algo = "sha512",
   ): Promise<Uint8Array> {
-    return new Uint8Array(
-      pbkdf2Sync(password, salt, iterations, keylen, algo),
-    );
+    const hash = algo.toLowerCase() === "sha512" ? sha512 : sha256;
+    return pbkdf2(hash, password, salt, { c: iterations, dkLen: keylen });
   }
 
   async hmacSha256(data: Uint8Array, key: Uint8Array): Promise<Uint8Array> {
-    return new Uint8Array(
-      createHmac("sha256", key).update(data).digest(),
-    );
+    return hmac(sha256, key, data);
   }
 
   createAesCtr(key: Uint8Array, iv: Uint8Array) {
-    const cipher = createCipheriv(
-      "aes-256-ctr",
-      BufferImpl.from(key),
-      BufferImpl.from(iv),
-    );
+    const counter = new Uint8Array(iv);
+    let keystream = new Uint8Array(0);
+    const incrementCounter = () => {
+      for (let index = counter.length - 1; index >= 0; index -= 1) {
+        counter[index] = (counter[index] + 1) & 0xff;
+        if (counter[index] !== 0) break;
+      }
+    };
     return {
-      process: (data: Uint8Array) =>
-        new Uint8Array(cipher.update(BufferImpl.from(data))),
+      process: (data: Uint8Array) => {
+        const output = new Uint8Array(data.length);
+        for (let index = 0; index < data.length; index += 1) {
+          if (keystream.length === 0) {
+            // noble cipher instances are intentionally single-use. Create a
+            // fresh ECB instance for each counter block while keeping the
+            // counter and keystream state across process() calls.
+            keystream = ecb(key, { disablePadding: true }).encrypt(counter);
+            incrementCounter();
+          }
+          output[index] = data[index] ^ keystream[0];
+          keystream = keystream.slice(1);
+        }
+        return output;
+      },
       close: () => undefined,
     };
   }
@@ -92,24 +100,8 @@ class ReactNativeCryptoProvider extends BaseCryptoProvider {
       throw new Error("AES-256-IGE requires a 32-byte key and IV");
     }
 
-    const encryptBlock = (block: Uint8Array) => {
-      const cipher = createCipheriv(
-        "aes-256-ecb",
-        BufferImpl.from(key),
-        null as any,
-      );
-      cipher.setAutoPadding(false);
-      return new Uint8Array(cipher.update(BufferImpl.from(block)));
-    };
-    const decryptBlock = (block: Uint8Array) => {
-      const decipher = createDecipheriv(
-        "aes-256-ecb",
-        BufferImpl.from(key),
-        null as any,
-      );
-      decipher.setAutoPadding(false);
-      return new Uint8Array(decipher.update(BufferImpl.from(block)));
-    };
+    const encryptBlock = (block: Uint8Array) => ecb(key, { disablePadding: true }).encrypt(block);
+    const decryptBlock = (block: Uint8Array) => ecb(key, { disablePadding: true }).decrypt(block);
 
     return {
       encrypt: (data: Uint8Array) => {
@@ -161,7 +153,7 @@ class ReactNativeCryptoProvider extends BaseCryptoProvider {
   }
 
   randomFill(buf: Uint8Array): void {
-    randomFillSync(buf);
+    buf.set(getRandomBytes(buf.byteLength));
   }
 }
 

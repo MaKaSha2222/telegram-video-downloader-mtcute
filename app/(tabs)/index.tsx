@@ -13,6 +13,7 @@ export default function HomeScreen() {
   const [serverReady, setServerReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState("");
+  const [errorStage, setErrorStage] = useState("");
   const [error, setError] = useState("");
   const [savedUri, setSavedUri] = useState("");
   const [progress, setProgress] = useState<BotApiDownloadProgress | null>(null);
@@ -34,6 +35,7 @@ export default function HomeScreen() {
 
   const runDownload = async () => {
     setError("");
+    setErrorStage("");
     setSavedUri("");
     setProgress(null);
 
@@ -51,26 +53,33 @@ export default function HomeScreen() {
     }
 
     setBusy(true);
+    let activeStage = "စတင်နေပါတယ်";
+    const setStep = (message: string) => {
+      activeStage = message;
+      setStage(message);
+    };
     try {
-      setStage("App အတွင်း Bot API Server ကို စတင်နေပါတယ်…");
+      setStep("[1/3] App အတွင်း Bot API Server ကို စတင်နေပါတယ်…");
       await startLocalBotApi(Number(credentials.apiId), credentials.apiHash);
       setServerReady(true);
 
-      setStage("Telegram post အချက်အလက်ကို ရယူနေပါတယ်…");
+      setStep("[2/3] Telegram post အချက်အလက်ကို ရယူနေပါတယ်…");
       const video = await resolvePublicTelegramVideo(link, {
         apiId: Number(credentials.apiId),
         apiHash: credentials.apiHash,
         botToken: credentials.botToken,
       });
 
-      setStage("Bot API Server မှ video ကို ရယူနေပါတယ်…");
+      setStep("[3/3] Bot API Server မှ video ကို ရယူနေပါတယ်…");
       const result = await downloadWithLocalBotApi(credentials.botToken, video.fileId, video.fileName);
       setSavedUri(result.uri);
       setStage("Download ပြီးပါပြီ");
       setProgress({ phase: "complete", copiedBytes: result.sizeBytes, totalBytes: result.sizeBytes });
     } catch (cause) {
       setStage("");
-      setError(cause instanceof Error ? cause.message : "Download မအောင်မြင်ပါ။");
+      const message = cause instanceof Error ? cause.message : "မသိသော error တစ်ခု ဖြစ်ပါတယ်။";
+      setErrorStage(activeStage);
+      setError(message);
     } finally {
       setBusy(false);
     }
@@ -153,7 +162,16 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
-      {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <View style={styles.errorCard}>
+          <Text accessibilityRole="alert" style={styles.errorTitle}>Download မအောင်မြင်ပါ</Text>
+          <Text style={styles.errorStage}>ရပ်သွားတဲ့အဆင့်: {errorStage}</Text>
+          <Text selectable style={styles.error}>{error}</Text>
+          <Pressable accessibilityRole="button" onPress={runDownload} style={styles.retryButton}>
+            <Text style={styles.retryButtonText}>ထပ်စမ်းမည်</Text>
+          </Pressable>
+        </View>
+      ) : null}
       {savedUri ? (
         <View style={styles.successCard}>
           <Text style={styles.successTitle}>Video သိမ်းပြီးပါပြီ</Text>
@@ -204,6 +222,11 @@ const styles = StyleSheet.create({
   fill: { height: "100%", backgroundColor: "#51d4c8", borderRadius: 4 },
   progressNumbers: { color: "#94a2a9", fontSize: 11 },
   error: { color: "#ff9677", fontSize: 12, lineHeight: 19, marginTop: 16 },
+  errorCard: { borderWidth: 1, borderColor: "#713d37", backgroundColor: "#241518", borderRadius: 18, padding: 16, marginTop: 16, gap: 8 },
+  errorTitle: { color: "#ff9677", fontSize: 14, fontWeight: "800" },
+  errorStage: { color: "#e4b09f", fontSize: 11, lineHeight: 17 },
+  retryButton: { alignSelf: "flex-start", borderWidth: 1, borderColor: "#a75b4e", borderRadius: 11, paddingHorizontal: 13, paddingVertical: 9, marginTop: 3 },
+  retryButtonText: { color: "#ffd2c5", fontSize: 12, fontWeight: "800" },
   successCard: { borderWidth: 1, borderColor: "#28533f", backgroundColor: "#102219", borderRadius: 18, padding: 16, marginTop: 18, gap: 8 },
   successTitle: { color: "#71e6a7", fontSize: 14, fontWeight: "800" },
   successPath: { color: "#b2c5ba", fontSize: 11, lineHeight: 17 },

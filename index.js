@@ -16,9 +16,8 @@ if (typeof globalThis.process.nextTick !== "function") {
   globalThis.process.nextTick = (callback, ...args) => setImmediate(callback, ...args);
 }
 
-// Fallback for environments where quick-crypto is unavailable. mtcute's
-// native Android path still requires crypto.subtle; this only supplies the
-// random-values part for diagnostics and web compatibility.
+// mtcute's pure-JavaScript crypto provider still needs secure random bytes;
+// Expo Crypto supplies them without a native crypto wrapper.
 const { getRandomBytes } = require("expo-crypto");
 const integerArrayTypes = new Set([
   Int8Array,
