@@ -47,6 +47,30 @@ class MainActivity : Activity() {
         refreshState()
     }
 
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != REQUEST_NOTIFICATIONS) return
+
+        if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+            startDownload()
+            return
+        }
+
+        stageText.visibility = View.GONE
+        progressBar.visibility = View.GONE
+        detailText.visibility = View.GONE
+        val canAskAgain = Build.VERSION.SDK_INT >= 33 && shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)
+        showError(ErrorDisplay.format(AppFailure(
+            errorType = "NotificationPermissionDeniedError",
+            errorMessage = if (canAskAgain) {
+                "Download notification ခွင့်ပြုချက် မရရှိပါ။ ခွင့်ပြုပြီးမှ download ကို စတင်နိုင်ပါတယ်။"
+            } else {
+                "Download notification ခွင့်ပြုချက် မရရှိပါ။ App settings ထဲက Notifications ကို ဖွင့်ပြီး ထပ်ကြိုးစားပါ။"
+            },
+            details = "Permission: ${Manifest.permission.POST_NOTIFICATIONS}",
+        ), credentials))
+    }
+
     private fun buildScreen(): View {
         val scroll = ScrollView(this).apply {
             setBackgroundColor(Color.rgb(11, 15, 20))
@@ -167,6 +191,7 @@ class MainActivity : Activity() {
     private fun startDownload() {
         errorText.visibility = View.GONE
         resultText.visibility = View.GONE
+        stageText.visibility = View.GONE
         progressBar.visibility = View.GONE
         detailText.visibility = View.GONE
         val saved = try {
@@ -190,12 +215,11 @@ class MainActivity : Activity() {
             return
         }
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            stageText.visibility = View.VISIBLE
+            stageText.text = "Download notification ခွင့်ပြုချက်ကို တောင်းနေပါတယ်…"
+            detailText.visibility = View.VISIBLE
+            detailText.text = "ခွင့်ပြုပါက download ကို အလိုအလျောက် စတင်ပါမယ်။"
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS)
-            showError(ErrorDisplay.format(AppFailure(
-                errorType = "NotificationPermissionRequiredError",
-                errorMessage = "Download notification ခွင့်ပြုချက်ကို ရွေးပြီး download ကို ထပ်နှိပ်ပါ။",
-                details = "Permission: ${Manifest.permission.POST_NOTIFICATIONS}",
-            ), saved))
             return
         }
 

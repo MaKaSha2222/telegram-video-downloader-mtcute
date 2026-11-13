@@ -45,8 +45,8 @@ object LocalBotApiBridge {
         val started = PrebuiltBotApiNative.nativeStart(
             credentials.apiId.toLong(),
             credentials.apiHash,
-            working.absolutePath,
-            files.absolutePath,
+            nativeDirectoryArgument(working),
+            nativeDirectoryArgument(files),
             SERVER_PORT,
         )
         if (!started) {
@@ -154,11 +154,12 @@ object LocalBotApiBridge {
             val root = File(context.filesDir, "telegram-bot-api").canonicalFile
             val sourceRoot = File(root, "files").canonicalFile
             val sourceCandidate = File(returnedPath).let { if (it.isAbsolute) it else File(root, returnedPath) }.canonicalFile
-            if (!sourceCandidate.path.startsWith(sourceRoot.path + File.separator) || !sourceCandidate.isFile) {
+            val insidePrivateWorkspace = sourceCandidate.path.startsWith(root.path + File.separator)
+            if (!insidePrivateWorkspace || !sourceCandidate.isFile) {
                 throw AppFailure(
                     errorType = "BotApiDownloadedFileMissingError",
-                    errorMessage = "Bot API Server returned a file path that is missing or outside its private files folder.",
-                    details = "Returned path: $returnedPath\nResolved path: ${sourceCandidate.absolutePath}\nExpected folder: ${sourceRoot.absolutePath}",
+                    errorMessage = "Bot API Server returned a missing file or a path outside its private workspace.",
+                    details = "Returned path: $returnedPath\nResolved path: ${sourceCandidate.absolutePath}\nExists: ${sourceCandidate.exists()}\nIs file: ${sourceCandidate.isFile}\nExpected files folder: ${sourceRoot.absolutePath}\nAllowed private workspace: ${root.absolutePath}",
                 )
             }
 
@@ -202,6 +203,11 @@ object LocalBotApiBridge {
         } finally {
             context.stopService(serviceIntent)
         }
+    }
+
+    private fun nativeDirectoryArgument(directory: File): String {
+        val path = directory.canonicalPath
+        return if (path.endsWith(File.separator)) path else path + File.separator
     }
 
     private fun uniqueDestination(directory: File, requestedName: String): File {
