@@ -29,8 +29,19 @@ android {
 
     buildFeatures { buildConfig true }
 
+    buildTypes {
+        release {
+            // Use the standard debug key so the GitHub Actions artifact is directly installable.
+            signingConfig signingConfigs.debug
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
     packaging {
-        jniLibs { useLegacyPackaging = true }
+        // Compress the single ARM64 native library to keep the installable APK smaller.
+        jniLibs { useLegacyPackaging = false }
     }
 
     externalNativeBuild {

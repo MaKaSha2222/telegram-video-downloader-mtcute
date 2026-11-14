@@ -1,6 +1,7 @@
 package space.manus.tgvidapp.t145521605804137
 
 import android.app.Activity
+import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -55,12 +56,11 @@ class SettingsActivity : Activity() {
         botTokenInput = addField(content, "Bot Token", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
 
         content.addView(text("Download ပြိုင်တူလုပ်ဆောင်မှု", 15, WHITE, true).apply { setPadding(0, dp(8), 0, dp(7)) })
-        parallelismSpinner = Spinner(this).apply {
-            adapter = ArrayAdapter(
-                this@SettingsActivity,
-                android.R.layout.simple_spinner_item,
-                DownloadSettings.choices.map { "$it ဖိုင် တစ်ပြိုင်နက်" },
-            ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        parallelismSpinner = Spinner(this, Spinner.MODE_DROPDOWN).apply {
+            adapter = ParallelismAdapter(this@SettingsActivity, DownloadSettings.choices)
+            popupBackgroundDrawable = solidBackground(0xff182329.toInt())
+            dropDownWidth = ViewGroup.LayoutParams.MATCH_PARENT
+            dropDownVerticalOffset = dp(4)
             background = rounded(0xff121a20.toInt(), 14, 0xff27343a.toInt())
             setPadding(dp(12), 0, dp(12), 0)
         }
@@ -163,10 +163,38 @@ class SettingsActivity : Activity() {
         if (bold) setTypeface(typeface, Typeface.BOLD)
     }
 
+    private class ParallelismAdapter(context: Context, choices: List<Int>) : ArrayAdapter<String>(
+        context,
+        android.R.layout.simple_spinner_item,
+        choices.map { "$it ဖိုင် တစ်ပြိုင်နက်" },
+    ) {
+        private fun row(position: Int, dropdown: Boolean): TextView = TextView(context).apply {
+            text = getItem(position).orEmpty()
+            textSize = 15f
+            setTextColor(WHITE)
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(18, 0, 18, 0)
+            minimumHeight = 54
+            if (dropdown) background = GradientDrawable().apply {
+                setColor(0xff182329.toInt())
+                cornerRadius = 12f
+            }
+        }
+
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View = row(position, false)
+
+        override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View = row(position, true)
+    }
+
     private fun rounded(fill: Int, radius: Int, stroke: Int = fill) = GradientDrawable().apply {
         setColor(fill)
         cornerRadius = dp(radius).toFloat()
         if (stroke != fill) setStroke(dp(1), stroke)
+    }
+
+    private fun solidBackground(fill: Int) = GradientDrawable().apply {
+        setColor(fill)
+        cornerRadius = dp(12).toFloat()
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()

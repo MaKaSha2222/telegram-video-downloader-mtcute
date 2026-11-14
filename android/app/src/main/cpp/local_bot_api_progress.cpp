@@ -1,6 +1,7 @@
 #include "local_bot_api_progress.h"
 
 #include <mutex>
+#include <algorithm>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -15,16 +16,20 @@ void begin_download_progress(const std::string &bot_file_id, std::int32_t td_fil
                              const DownloadProgress &progress) {
   std::lock_guard<std::mutex> lock(progress_mutex);
   bot_file_ids_by_td_file_id[td_file_id].insert(bot_file_id);
-  progress_by_bot_file_id[bot_file_id] = progress;
+  auto normalized = progress;
+  normalized.size = std::max(normalized.size, normalized.expected_size);
+  progress_by_bot_file_id[bot_file_id] = normalized;
 }
 
 void update_download_progress(std::int32_t td_file_id, const DownloadProgress &progress) {
   std::lock_guard<std::mutex> lock(progress_mutex);
   auto ids = bot_file_ids_by_td_file_id.find(td_file_id);
   if (ids == bot_file_ids_by_td_file_id.end()) return;
+  auto normalized = progress;
+  normalized.size = std::max(normalized.size, normalized.expected_size);
   for (const auto &bot_file_id : ids->second) {
     auto current = progress_by_bot_file_id.find(bot_file_id);
-    if (current != progress_by_bot_file_id.end()) current->second = progress;
+    if (current != progress_by_bot_file_id.end()) current->second = normalized;
   }
 }
 

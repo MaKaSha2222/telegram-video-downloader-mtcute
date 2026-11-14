@@ -73,16 +73,16 @@ jobs:
           make -j2
           make install_sw
 
-      - name: Build debug APK
+      - name: Build size-optimized release APK
         working-directory: android
         env:
           OPENSSL_ROOT_DIR: ${{ github.workspace }}/build/openssl-install
-        run: ./gradlew --no-daemon --stacktrace :app:assembleDebug
+        run: ./gradlew --no-daemon --stacktrace :app:assembleRelease
 
-      - name: Upload installable debug APK
+      - name: Upload installable size-optimized APK
         uses: actions/upload-artifact@v4
         with:
-          name: telegram-video-downloader-arm64-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: telegram-video-downloader-arm64-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14

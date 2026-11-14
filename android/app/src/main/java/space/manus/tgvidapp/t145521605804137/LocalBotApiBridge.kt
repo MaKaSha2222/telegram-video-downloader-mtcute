@@ -20,6 +20,7 @@ import java.net.URL
 import java.net.URLEncoder
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.max
 
 object LocalBotApiBridge {
     private const val SERVER_PORT = 18081
@@ -109,8 +110,9 @@ object LocalBotApiBridge {
                         if (rawProgress.isNotBlank()) {
                             val state = JSONObject(rawProgress)
                             val downloaded = state.optLong("downloaded_size").coerceAtLeast(0L)
-                            val total = state.optLong("size").takeIf { it > 0L }
-                                ?: state.optLong("expected_size").takeIf { it > 0L }
+                            val knownSize = state.optLong("size").coerceAtLeast(0L)
+                            val expectedSize = state.optLong("expected_size").coerceAtLeast(0L)
+                            val total = max(knownSize, expectedSize).takeIf { it > 0L }
                             val now = System.nanoTime()
                             val elapsedNanos = (now - previousAt).coerceAtLeast(1L)
                             val deltaBytes = (downloaded - previousBytes).coerceAtLeast(0L)

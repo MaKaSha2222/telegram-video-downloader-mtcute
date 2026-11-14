@@ -128,13 +128,13 @@ class DownloadsActivity : Activity() {
                 max = 100
                 progressTintList = android.content.res.ColorStateList.valueOf(ACCENT)
                 progressBackgroundTintList = android.content.res.ColorStateList.valueOf(0xff27343a.toInt())
-                isIndeterminate = item.progress < 0 && DownloadStatus.isActive(item.status)
+                isIndeterminate = item.progress < 0 && item.totalBytes == null && DownloadStatus.isActive(item.status)
                 if (!isIndeterminate) progress = item.progress.coerceAtLeast(0)
             }
             card.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(7)).apply { topMargin = dp(10) })
             val speedText = if (DownloadStatus.isActive(item.status)) "${formatSpeed(item.speedBytesPerSecond)} MB/s" else ""
-            val progressText = if (item.progress >= 0 && item.totalBytes != null) {
-                "${item.progress}% · ${formatBytes(item.copiedBytes)} / ${formatBytes(item.totalBytes)}${if (speedText.isNotEmpty()) " · $speedText" else ""} · ${item.phase}"
+            val progressText = if (item.totalBytes != null) {
+                "${item.progress.coerceAtLeast(0)}% · ${formatBytes(item.copiedBytes)} / ${formatBytes(item.totalBytes)}${if (speedText.isNotEmpty()) " · $speedText" else ""} · ${item.phase}"
             } else if (item.status == DownloadStatus.COMPLETED) {
                 "100% · ${formatBytes(item.copiedBytes)}"
             } else if (item.status == DownloadStatus.DOWNLOADING) {

@@ -106,20 +106,19 @@ class MainActivity : Activity() {
         content.addView(serverCard)
 
         val inputCard = card().apply { orientation = LinearLayout.VERTICAL }
-        inputCard.addView(text("Telegram post link များ", 13, Color.WHITE, true))
+        inputCard.addView(text("Telegram post link", 13, Color.WHITE, true))
         linkInput = EditText(this).apply {
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or android.text.InputType.TYPE_TEXT_VARIATION_URI
-            minLines = 3
-            maxLines = 6
-            gravity = Gravity.TOP or Gravity.START
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+            setSingleLine(true)
+            gravity = Gravity.CENTER_VERTICAL or Gravity.START
             setTextColor(Color.WHITE)
             setHintTextColor(0xff687780.toInt())
-            hint = ""
+            hint = "https://t.me/channel/123"
             textSize = 14f
-            setPadding(dp(14), dp(12), dp(14), dp(12))
+            setPadding(dp(14), 0, dp(14), 0)
             background = rounded(0xff0b1116.toInt(), 0xff2d3d43.toInt(), 1, 13)
         }
-        inputCard.addView(linkInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+        inputCard.addView(linkInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(54)).apply {
             topMargin = dp(12)
         })
         content.addView(inputCard, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
@@ -182,12 +181,12 @@ class MainActivity : Activity() {
             startActivity(Intent(this, SettingsActivity::class.java))
             return
         }
-        val links = linkInput.text.toString().lineSequence().map { it.trim() }.filter { it.isNotBlank() }.toList()
-        if (links.isEmpty()) {
-            showError(ErrorDisplay.format(AppFailure("TelegramLinkMissingError", errorMessage = "Telegram video post link တစ်ခု သို့မဟုတ် တစ်ခုထက်ပို ထည့်ပါ။"), saved))
+        val link = linkInput.text.toString().trim()
+        if (link.isBlank()) {
+            showError(ErrorDisplay.format(AppFailure("TelegramLinkMissingError", errorMessage = "Telegram video post link တစ်ခု ထည့်ပါ။"), saved))
             return
         }
-        pendingLinks = ArrayList(links)
+        pendingLinks = arrayListOf(link)
         enqueuePendingLinks()
     }
 
@@ -218,7 +217,7 @@ class MainActivity : Activity() {
             linkInput.text?.clear()
             pendingLinks = null
             stageText.visibility = View.VISIBLE
-            stageText.text = "${links.size} ခုကို download queue ထဲ ထည့်ပြီးပါပြီ။"
+            stageText.text = "Download queue ထဲ ထည့်ပြီးပါပြီ။"
             progressBar.visibility = View.GONE
             startActivity(Intent(this, DownloadsActivity::class.java))
         } catch (error: Exception) {

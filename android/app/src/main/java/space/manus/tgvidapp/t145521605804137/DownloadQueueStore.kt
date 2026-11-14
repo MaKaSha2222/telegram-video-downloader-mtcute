@@ -77,7 +77,26 @@ object DownloadQueueStore {
     @Synchronized
     fun enqueue(context: Context, links: List<String>): List<DownloadItem> = synchronized(lock) {
         val db = database(context).writableDatabase
-        val created = links.map { DownloadItem(id = UUID.randomUUID().toString(), link = it.trim()) }
+        val existingActiveLinks = db.query(
+            TABLE,
+            arrayOf("link"),
+            "status IN (?, ?, ?, ?)",
+            arrayOf(DownloadStatus.QUEUED, DownloadStatus.RESOLVING, DownloadStatus.DOWNLOADING, DownloadStatus.RETRYING),
+            null,
+            null,
+            null,
+        ).use { cursor ->
+            buildSet {
+                while (cursor.moveToNext()) add(cursor.getString(cursor.getColumnIndexOrThrow("link")).trim())
+            }
+        }
+        val created = links
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .filterNot { it in existingActiveLinks }
+            .map { DownloadItem(id = UUID.randomUUID().toString(), link = it) }
+        if (created.isEmpty()) return@synchronized emptyList()
         db.beginTransaction()
         try {
             created.forEach { db.insertOrThrow(TABLE, null, it.toContentValues()) }

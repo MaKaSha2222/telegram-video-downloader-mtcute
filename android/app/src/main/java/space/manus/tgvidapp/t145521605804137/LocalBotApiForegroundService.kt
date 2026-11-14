@@ -107,6 +107,7 @@ class LocalBotApiForegroundService : Service() {
         val context = applicationContext
         var credentials: TelegramCredentials? = null
         var lastAttempt = 0
+        var resolvedFileId: String? = null
         try {
             credentials = CredentialsStore.load(context)
                 ?: throw AppFailure("CredentialsNotConfiguredError", errorMessage = "API ဆက်တင်များ မရှိပါ။ Settings ထဲမှာ အရင်ဖြည့်ပါ။")
@@ -115,17 +116,21 @@ class LocalBotApiForegroundService : Service() {
             for (attempt in 1..MAX_ATTEMPTS) {
                 lastAttempt = attempt
                 try {
-                    setState(initialItem.id, DownloadStatus.RESOLVING, "Telegram post မှ video file_id ကို ရှာနေပါတယ်…", attempt, -1, 0L, null)
-                    val fileId = TelegramFileResolver.resolve(initialItem.link, credentials)
+                    val fileId = resolvedFileId ?: run {
+                        setState(initialItem.id, DownloadStatus.RESOLVING, "Telegram post မှ video file_id ကို ရှာနေပါတယ်…", attempt, -1, 0L, null)
+                        TelegramFileResolver.resolve(initialItem.link, credentials).also { resolvedFileId = it }
+                    }
 
+                    val beforeDownload = DownloadQueueStore.get(context, initialItem.id)
+                    val keepProgress = resolvedFileId != null
                     setState(
                         initialItem.id,
                         DownloadStatus.DOWNLOADING,
                         "Telegram Bot API Server က file ကို ရယူနေပါတယ်…",
                         attempt,
-                        -1,
-                        0L,
-                        null,
+                        if (keepProgress) beforeDownload?.progress ?: -1 else -1,
+                        if (keepProgress) beforeDownload?.copiedBytes ?: 0L else 0L,
+                        if (keepProgress) beforeDownload?.totalBytes else null,
                     )
                     val outputName = makeOutputName(initialItem)
                     val saved = LocalBotApiBridge.downloadVideo(
@@ -176,14 +181,15 @@ class LocalBotApiForegroundService : Service() {
                     val shouldRetry = attempt < MAX_ATTEMPTS && isRetryable(error)
                     if (!shouldRetry) throw error
                     val pause = retryDelayMillis(error, attempt)
+                    val current = DownloadQueueStore.get(context, initialItem.id)
                     setState(
                         initialItem.id,
                         DownloadStatus.RETRYING,
                         "ယာယီ network အမှားဖြစ်၍ ${attempt + 1}/$MAX_ATTEMPTS အကြိမ် ပြန်ကြိုးစားမည် (${pause / 1000}s)…",
                         attempt,
-                        -1,
-                        0L,
-                        null,
+                        current?.progress ?: -1,
+                        current?.copiedBytes ?: 0L,
+                        current?.totalBytes,
                         error = safeError(error, credentials),
                     )
                     Thread.sleep(pause)
@@ -239,7 +245,7 @@ class LocalBotApiForegroundService : Service() {
         }
         val failure = error as? AppFailure
         val classification = listOfNotNull(failure?.errorType, failure?.errorMessage, failure?.details).joinToString(" ")
-        if (classification.contains("FloodWait", true) || classification.contains("SocketTimeout", true) ||
+        if (classification.contains("SocketTimeout", true) ||
             classification.contains("timed out", true) || classification.contains("timeout", true) ||
             classification.contains("connection reset", true) || classification.contains("file reference expired", true) ||
             classification.contains("file_id_invalid", true)
@@ -261,7 +267,7 @@ class LocalBotApiForegroundService : Service() {
 
     private fun retryDelayMillis(error: Throwable, attempt: Int): Long {
         val primary = error as? AppFailure
-        if (primary?.errorType?.contains("FloodWait", true) == true || primary?.errorCode == "429") {
+        if (primary?.errorCode == "429") {
             val seconds = Regex("(?:retry[_ ]after|seconds|wait of)\\D{0,16}(\\d+)", RegexOption.IGNORE_CASE)
                 .find(primary.details.orEmpty() + " " + primary.errorMessage)?.groupValues?.getOrNull(1)?.toLongOrNull()
             if (seconds != null) return (seconds * 1000L).coerceIn(1_000L, MAX_RETRY_WAIT_MS)
