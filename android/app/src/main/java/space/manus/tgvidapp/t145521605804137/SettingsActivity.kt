@@ -58,7 +58,7 @@ class SettingsActivity : Activity() {
         content.addView(text("Download ပြိုင်တူလုပ်ဆောင်မှု", 15, WHITE, true).apply { setPadding(0, dp(8), 0, dp(7)) })
         parallelismSpinner = Spinner(this, Spinner.MODE_DROPDOWN).apply {
             adapter = ParallelismAdapter(this@SettingsActivity, DownloadSettings.choices)
-            popupBackgroundDrawable = solidBackground(0xff182329.toInt())
+            setPopupBackgroundDrawable(solidBackground(0xff182329.toInt()))
             dropDownWidth = ViewGroup.LayoutParams.MATCH_PARENT
             dropDownVerticalOffset = dp(4)
             background = rounded(0xff121a20.toInt(), 14, 0xff27343a.toInt())
