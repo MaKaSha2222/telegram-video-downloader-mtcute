@@ -40,8 +40,8 @@ android {
     }
 
     packaging {
-        // Compress the single ARM64 native library to keep the installable APK smaller.
-        jniLibs { useLegacyPackaging = false }
+        // Legacy JNI packaging compresses the large native Bot API/TDLib libraries.
+        jniLibs { useLegacyPackaging = true }
     }
 
     externalNativeBuild {
