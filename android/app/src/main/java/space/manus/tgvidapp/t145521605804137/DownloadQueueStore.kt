@@ -27,6 +27,7 @@ data class DownloadItem(
     val progress: Int = -1,
     val copiedBytes: Long = 0L,
     val totalBytes: Long? = null,
+    val speedBytesPerSecond: Long = 0L,
     val attempts: Int = 0,
     val error: String = "",
     val resultUri: String = "",
@@ -39,7 +40,7 @@ data class DownloadItem(
 
 object DownloadQueueStore {
     private const val DB_NAME = "telegram_download_queue.db"
-    private const val DB_VERSION = 1
+    private const val DB_VERSION = 2
     private const val TABLE = "downloads"
     private val lock = Any()
     @Volatile private var dbHelper: QueueDb? = null
@@ -55,6 +56,7 @@ object DownloadQueueStore {
                     progress INTEGER NOT NULL DEFAULT -1,
                     copied_bytes INTEGER NOT NULL DEFAULT 0,
                     total_bytes INTEGER,
+                    speed_bytes_per_second INTEGER NOT NULL DEFAULT 0,
                     attempts INTEGER NOT NULL DEFAULT 0,
                     error TEXT NOT NULL DEFAULT '',
                     result_uri TEXT NOT NULL DEFAULT '',
@@ -65,7 +67,11 @@ object DownloadQueueStore {
             db.execSQL("CREATE INDEX downloads_status_created ON $TABLE(status, created_at)")
         }
 
-        override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+        override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+            if (oldVersion < 2) {
+                db.execSQL("ALTER TABLE $TABLE ADD COLUMN speed_bytes_per_second INTEGER NOT NULL DEFAULT 0")
+            }
+        }
     }
 
     @Synchronized
@@ -133,6 +139,7 @@ object DownloadQueueStore {
                 progress = -1,
                 copiedBytes = 0L,
                 totalBytes = null,
+                speedBytesPerSecond = 0L,
                 attempts = 0,
                 error = "",
                 resultUri = "",
@@ -170,6 +177,7 @@ object DownloadQueueStore {
                     progress = -1,
                     copiedBytes = 0L,
                     totalBytes = null,
+                    speedBytesPerSecond = 0L,
                     updatedAt = System.currentTimeMillis(),
                 )
                 db.update(TABLE, recovered.toContentValues(), "id=?", arrayOf(item.id))
@@ -200,6 +208,7 @@ object DownloadQueueStore {
         put("progress", progress)
         put("copied_bytes", copiedBytes)
         if (totalBytes == null) putNull("total_bytes") else put("total_bytes", totalBytes)
+        put("speed_bytes_per_second", speedBytesPerSecond)
         put("attempts", attempts)
         put("error", error)
         put("result_uri", resultUri)
@@ -215,6 +224,7 @@ object DownloadQueueStore {
         progress = getInt(getColumnIndexOrThrow("progress")),
         copiedBytes = getLong(getColumnIndexOrThrow("copied_bytes")),
         totalBytes = if (isNull(getColumnIndexOrThrow("total_bytes"))) null else getLong(getColumnIndexOrThrow("total_bytes")),
+        speedBytesPerSecond = getLong(getColumnIndexOrThrow("speed_bytes_per_second")),
         attempts = getInt(getColumnIndexOrThrow("attempts")),
         error = getString(getColumnIndexOrThrow("error")),
         resultUri = getString(getColumnIndexOrThrow("result_uri")),

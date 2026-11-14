@@ -19,15 +19,18 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 
 object LocalBotApiBridge {
     private const val SERVER_PORT = 18081
+    private const val REMOTE_PROGRESS_POLL_MS = 500L
 
     data class Progress(
         val phase: String,
         val copiedBytes: Long,
         val totalBytes: Long?,
         val speedBytesPerSecond: Long?,
+        val isComplete: Boolean = false,
     )
 
     data class SavedVideo(val uri: Uri, val sizeBytes: Long)
@@ -61,7 +64,7 @@ object LocalBotApiBridge {
             throw AppFailure(
                 errorType = "BotApiServerStartError",
                 errorMessage = "Telegram Bot API Server ကို စတင်မရပါ။",
-                details = "ပါဝင်လာတဲ့ native binary က စတင်မှုအောင်မြင်/မအောင်မြင်ကို Boolean ဖြင့်သာ ပြန်ပေးပါတယ်။ Native အသေးစိတ်အကြောင်းရင်းကို Logcat မှာ စစ်ပါ။",
+                details = "nativeStart က false ပြန်ပေးပါတယ်။ Native စတင်မှုအကြောင်းရင်းကို Logcat မှာ စစ်ပါ။",
             )
         }
     }
@@ -95,6 +98,47 @@ object LocalBotApiBridge {
                 readTimeout = 180_000
                 instanceFollowRedirects = false
             }
+            val stopProgressPolling = AtomicBoolean(false)
+            val progressThread = Thread({
+                var previousBytes = 0L
+                var previousAt = System.nanoTime()
+                var hasPreviousSample = false
+                while (!stopProgressPolling.get() && !Thread.currentThread().isInterrupted) {
+                    try {
+                        val rawProgress = PrebuiltBotApiNative.nativeGetDownloadProgress(fileId)
+                        if (rawProgress.isNotBlank()) {
+                            val state = JSONObject(rawProgress)
+                            val downloaded = state.optLong("downloaded_size").coerceAtLeast(0L)
+                            val total = state.optLong("size").takeIf { it > 0L }
+                                ?: state.optLong("expected_size").takeIf { it > 0L }
+                            val now = System.nanoTime()
+                            val elapsedNanos = (now - previousAt).coerceAtLeast(1L)
+                            val deltaBytes = (downloaded - previousBytes).coerceAtLeast(0L)
+                            val speed = if (hasPreviousSample) {
+                                (deltaBytes.toDouble() * 1_000_000_000.0 / elapsedNanos).toLong()
+                            } else 0L
+                            val completed = state.optBoolean("is_downloading_completed")
+                            onProgress(Progress("remote", downloaded, total, speed, completed))
+                            previousBytes = downloaded
+                            previousAt = now
+                            hasPreviousSample = true
+                            if (completed) break
+                        }
+                    } catch (_: Exception) {
+                        // The Bot API server may not have registered this file yet; retry on the next tick.
+                    } catch (_: UnsatisfiedLinkError) {
+                        break
+                    }
+                    try {
+                        Thread.sleep(REMOTE_PROGRESS_POLL_MS)
+                    } catch (_: InterruptedException) {
+                        break
+                    }
+                }
+            }, "tg-file-progress-${fileId.hashCode()}").apply {
+                isDaemon = true
+                start()
+            }
             var responseCode = -1
             var responseMessage: String? = null
             val responseText = try {
@@ -110,6 +154,10 @@ object LocalBotApiBridge {
                     cause = error,
                 )
             } finally {
+                stopProgressPolling.set(true)
+                progressThread.interrupt()
+                runCatching { progressThread.join(750L) }
+                runCatching { PrebuiltBotApiNative.nativeClearDownloadProgress(fileId) }
                 connection.disconnect()
             }
             if (responseText.isBlank()) {

@@ -86,7 +86,7 @@ class LocalBotApiForegroundService : Service() {
             val next = DownloadQueueStore.queued(this).firstOrNull { it.id !in scheduledIds } ?: break
             scheduledIds.add(next.id)
             DownloadQueueStore.update(this, next.id) {
-                it.copy(status = DownloadStatus.RESOLVING, phase = "စတင်နေပါတယ်…", progress = -1, copiedBytes = 0L, totalBytes = null)
+                it.copy(status = DownloadStatus.RESOLVING, phase = "စတင်နေပါတယ်…", progress = -1, copiedBytes = 0L, totalBytes = null, speedBytesPerSecond = 0L)
             }
             executor.execute {
                 processItem(next)
@@ -121,7 +121,7 @@ class LocalBotApiForegroundService : Service() {
                     setState(
                         initialItem.id,
                         DownloadStatus.DOWNLOADING,
-                        "Telegram Bot API Server က file ကို ရယူနေပါတယ်… (server ကရာခိုင်နှုန်းမပေးသေးပါ)",
+                        "Telegram Bot API Server က file ကို ရယူနေပါတယ်…",
                         attempt,
                         -1,
                         0L,
@@ -135,10 +135,14 @@ class LocalBotApiForegroundService : Service() {
                         requestedFileName = outputName,
                     ) { progress ->
                         val copyStage = progress.phase == "copying" || progress.phase == "complete"
+                        val remoteStage = progress.phase == "remote"
                         val total = progress.totalBytes?.takeIf { it > 0L }
-                        val percent = if (copyStage && total != null) {
-                            ((progress.copiedBytes * 100L) / total).coerceIn(0L, 100L).toInt()
-                        } else -1
+                        val percent = when {
+                            remoteStage && progress.isComplete -> 100
+                            remoteStage && total != null -> ((progress.copiedBytes * 100L) / total).coerceIn(0L, 99L).toInt()
+                            copyStage && total != null -> ((progress.copiedBytes * 100L) / total).coerceIn(0L, 100L).toInt()
+                            else -> -1
+                        }
                         val now = System.currentTimeMillis()
                         val changedPercent = percent >= 0 && lastProgressPercent.put(initialItem.id, percent) != percent
                         val elapsed = now - (lastProgressPersistedAt[initialItem.id] ?: 0L)
@@ -152,6 +156,7 @@ class LocalBotApiForegroundService : Service() {
                                 percent,
                                 progress.copiedBytes,
                                 total,
+                                speedBytesPerSecond = progress.speedBytesPerSecond ?: 0L,
                             )
                         }
                     }
@@ -163,6 +168,7 @@ class LocalBotApiForegroundService : Service() {
                         100,
                         saved.sizeBytes,
                         saved.sizeBytes,
+                        speedBytesPerSecond = 0L,
                         resultUri = saved.uri.toString(),
                     )
                     return
@@ -205,6 +211,7 @@ class LocalBotApiForegroundService : Service() {
         progress: Int,
         bytes: Long,
         total: Long?,
+        speedBytesPerSecond: Long = 0L,
         error: String = "",
         resultUri: String? = null,
     ) {
@@ -217,6 +224,7 @@ class LocalBotApiForegroundService : Service() {
                 progress = progress,
                 copiedBytes = bytes,
                 totalBytes = total,
+                speedBytesPerSecond = speedBytesPerSecond,
                 error = error,
                 resultUri = resultUri ?: old.resultUri,
             )
@@ -283,6 +291,7 @@ class LocalBotApiForegroundService : Service() {
             primary != null -> buildString {
                 append(primary.shortLabel)
                 if (primary.progress >= 0) append(" · ${primary.progress}%") else append(" · ${primary.phase.take(60)}")
+                if (primary.speedBytesPerSecond > 0L) append(" · ${formatSpeed(primary.speedBytesPerSecond)} MB/s")
                 if (queued > 0) append(" · +$queued queued")
             }
             queued > 0 -> "$queued download(s) in queue"
@@ -362,6 +371,9 @@ class LocalBotApiForegroundService : Service() {
         bytes >= 1024L -> String.format(java.util.Locale.US, "%.1f KB", bytes / 1024.0)
         else -> "$bytes B"
     }
+
+    private fun formatSpeed(bytesPerSecond: Long): String =
+        String.format(java.util.Locale.US, "%.2f", bytesPerSecond / 1_000_000.0)
 
     companion object {
         private const val CHANNEL_ID = "telegram_downloads"

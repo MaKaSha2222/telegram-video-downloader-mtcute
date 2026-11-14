@@ -54,7 +54,7 @@ class DownloadsActivity : Activity() {
         scroll = ScrollView(this).apply { setBackgroundColor(BG); isFillViewport = true }
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(22), dp(22), dp(22), dp(32))
+            setPadding(dp(22), dp(36), dp(22), dp(32))
         }
         scroll.addView(content)
 
@@ -96,7 +96,6 @@ class DownloadsActivity : Activity() {
             listContainer.addView(card().apply {
                 orientation = LinearLayout.VERTICAL
                 addView(text("စာရင်းထဲမှာ download မရှိသေးပါ။", 15, WHITE, true))
-                addView(text("Main screen မှာ Telegram link များကို တစ်ကြောင်းစီ ထည့်နိုင်ပါတယ်။", 12, MUTED, false).apply { setPadding(0, dp(8), 0, 0) })
             })
         } else {
             items.forEach { item -> listContainer.addView(buildItemCard(item)) }
@@ -133,12 +132,15 @@ class DownloadsActivity : Activity() {
                 if (!isIndeterminate) progress = item.progress.coerceAtLeast(0)
             }
             card.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(7)).apply { topMargin = dp(10) })
+            val speedText = if (DownloadStatus.isActive(item.status)) "${formatSpeed(item.speedBytesPerSecond)} MB/s" else ""
             val progressText = if (item.progress >= 0 && item.totalBytes != null) {
-                "${item.progress}% · ${formatBytes(item.copiedBytes)} / ${formatBytes(item.totalBytes)}${if (item.status == DownloadStatus.DOWNLOADING) " · ဖိုင်ကို public folder သို့ သိမ်းခြင်း" else ""}"
+                "${item.progress}% · ${formatBytes(item.copiedBytes)} / ${formatBytes(item.totalBytes)}${if (speedText.isNotEmpty()) " · $speedText" else ""} · ${item.phase}"
             } else if (item.status == DownloadStatus.COMPLETED) {
                 "100% · ${formatBytes(item.copiedBytes)}"
+            } else if (item.status == DownloadStatus.DOWNLOADING) {
+                "${formatBytes(item.copiedBytes)} ရရှိပြီး · $speedText · ${item.phase}"
             } else {
-                "Remote fetch stage · Telegram server က % ပေးမထားသေးပါ"
+                item.phase
             }
             card.addView(text(progressText, 11, MUTED, false).apply { setPadding(0, dp(6), 0, 0) })
         }
@@ -245,6 +247,9 @@ class DownloadsActivity : Activity() {
         bytes >= 1024L -> String.format(java.util.Locale.US, "%.1f KB", bytes / 1024.0)
         else -> "$bytes B"
     }
+
+    private fun formatSpeed(bytesPerSecond: Long): String =
+        String.format(java.util.Locale.US, "%.2f", bytesPerSecond.coerceAtLeast(0L) / 1_000_000.0)
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 

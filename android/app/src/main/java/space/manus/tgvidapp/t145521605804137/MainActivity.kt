@@ -25,9 +25,7 @@ class MainActivity : Activity() {
     private lateinit var statusDot: View
     private lateinit var progressBar: ProgressBar
     private lateinit var stageText: TextView
-    private lateinit var detailText: TextView
     private lateinit var errorText: TextView
-    private lateinit var resultText: TextView
     private lateinit var downloadButton: Button
     private var credentials: TelegramCredentials? = null
     private var pendingLinks: ArrayList<String>? = null
@@ -61,7 +59,6 @@ class MainActivity : Activity() {
         }
         stageText.visibility = View.GONE
         progressBar.visibility = View.GONE
-        detailText.visibility = View.GONE
         val notificationPermission = requestCode == REQUEST_NOTIFICATIONS
         val permission = if (notificationPermission) Manifest.permission.POST_NOTIFICATIONS else Manifest.permission.WRITE_EXTERNAL_STORAGE
         val canAskAgain = shouldShowRequestPermissionRationale(permission)
@@ -83,7 +80,7 @@ class MainActivity : Activity() {
         val scroll = ScrollView(this).apply { setBackgroundColor(Color.BG); isFillViewport = true }
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(22), dp(26), dp(22), dp(32))
+            setPadding(dp(22), dp(40), dp(22), dp(32))
         }
         scroll.addView(content)
 
@@ -98,10 +95,6 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(46)).apply { leftMargin = dp(6) }
         })
         content.addView(header)
-        content.addView(text("အများမြင်နိုင်တဲ့ Telegram channel video post link များကို တစ်ကြောင်းစီ ထည့်ပါ။", 14, Color.MUTED, false).apply {
-            setPadding(0, dp(17), 0, dp(22))
-        })
-
         val serverCard = card()
         statusDot = View(this).apply { background = circle(0xff687780.toInt()) }
         serverCard.addView(statusDot, LinearLayout.LayoutParams(dp(10), dp(10)).apply { rightMargin = dp(12) })
@@ -121,7 +114,7 @@ class MainActivity : Activity() {
             gravity = Gravity.TOP or Gravity.START
             setTextColor(Color.WHITE)
             setHintTextColor(0xff687780.toInt())
-            hint = "https://t.me/channelname/123\nhttps://t.me/channelname/124"
+            hint = ""
             textSize = 14f
             setPadding(dp(14), dp(12), dp(14), dp(12))
             background = rounded(0xff0b1116.toInt(), 0xff2d3d43.toInt(), 1, 13)
@@ -129,16 +122,12 @@ class MainActivity : Activity() {
         inputCard.addView(linkInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = dp(12)
         })
-        inputCard.addView(text("Parallel limit ကို Settings မှာ 1–4 အထိ ပြောင်းနိုင်ပါတယ်။", 11, Color.MUTED, false).apply {
-            setPadding(0, dp(10), 0, 0)
-        })
         content.addView(inputCard, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
 
         downloadButton = button("Queue ထဲသို့ ထည့်ပြီး download လုပ်မည်", Color.ACCENT, Color.DARK) { startDownload() }
         content.addView(downloadButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)).apply { topMargin = dp(16) })
 
         stageText = text("", 13, Color.WHITE, true).apply { visibility = View.GONE; setPadding(0, dp(18), 0, 0) }
-        detailText = text("", 11, Color.MUTED, false).apply { visibility = View.GONE; setPadding(0, dp(6), 0, 0) }
         progressBar = ProgressBar(this).apply {
             isIndeterminate = true
             indeterminateTintList = android.content.res.ColorStateList.valueOf(Color.ACCENT)
@@ -146,7 +135,6 @@ class MainActivity : Activity() {
         }
         content.addView(stageText)
         content.addView(progressBar, LinearLayout.LayoutParams(dp(36), dp(36)).apply { topMargin = dp(12) })
-        content.addView(detailText)
 
         errorText = text("", 12, Color.ERROR, false).apply {
             visibility = View.GONE
@@ -155,15 +143,6 @@ class MainActivity : Activity() {
             background = rounded(0xff291916.toInt(), 0xff704035.toInt(), 1, 14)
         }
         content.addView(errorText, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(14) })
-        resultText = text("", 12, Color.SUCCESS, false).apply {
-            visibility = View.GONE
-            setPadding(dp(14), dp(14), dp(14), dp(14))
-            background = rounded(0xff102219.toInt(), 0xff28533f.toInt(), 1, 16)
-        }
-        content.addView(resultText, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(18) })
-        content.addView(text("API credentials များကို ဒီစက်မှာ encrypted သိမ်းဆည်းပါတယ်။ Server က byte callback မပေးတဲ့ remote-fetch အဆင့်မှာ indeterminate အဖြစ်ပြပြီး Download/TGMovies သို့ ဖိုင်ကူးနေချိန်မှသာ တိကျသော percent ကိုပြပါမယ်။", 11, 0xff718087.toInt(), false).apply {
-            setPadding(0, dp(24), 0, 0)
-        })
         return scroll
     }
 
@@ -186,10 +165,8 @@ class MainActivity : Activity() {
 
     private fun startDownload() {
         errorText.visibility = View.GONE
-        resultText.visibility = View.GONE
         stageText.visibility = View.GONE
         progressBar.visibility = View.GONE
-        detailText.visibility = View.GONE
         val saved = try {
             CredentialsStore.load(this)
         } catch (error: Exception) {
@@ -219,8 +196,6 @@ class MainActivity : Activity() {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             stageText.visibility = View.VISIBLE
             stageText.text = "Download notification ခွင့်ပြုချက်ကို တောင်းနေပါတယ်…"
-            detailText.visibility = View.VISIBLE
-            detailText.text = "ခွင့်ပြုပါက ဖိုင်များကို background မှာ ဆက်လက်လုပ်ပါမယ်။"
             progressBar.visibility = View.VISIBLE
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS)
             return
@@ -244,11 +219,7 @@ class MainActivity : Activity() {
             pendingLinks = null
             stageText.visibility = View.VISIBLE
             stageText.text = "${links.size} ခုကို download queue ထဲ ထည့်ပြီးပါပြီ။"
-            detailText.visibility = View.VISIBLE
-            detailText.text = "ဖိုင်များကို Download/TGMovies ထဲမှာ သိမ်းပါမယ်။"
             progressBar.visibility = View.GONE
-            resultText.text = "Queue ထဲသို့ ${links.size} ခု ထည့်ပြီးပါပြီ။ Download list မှာ status နှင့် progress ကိုကြည့်ပါ။"
-            resultText.visibility = View.VISIBLE
             startActivity(Intent(this, DownloadsActivity::class.java))
         } catch (error: Exception) {
             showError(ErrorDisplay.format(error, credentials))

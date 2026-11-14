@@ -20,7 +20,6 @@
 #include <memory>
 #include <exception>
 #include <thread>
-#include <typeinfo>
 
 namespace local_bot_api {
 
@@ -151,7 +150,7 @@ bool Engine::start(std::int64_t api_id, const std::string &api_hash, const std::
     try {
       run_server(static_cast<std::int32_t>(api_id), api_hash, working_directory, files_directory, port);
     } catch (const std::exception &error) {
-      set_startup_error(std::string(typeid(error).name()) + ": " + error.what());
+      set_startup_error(std::string("Native Bot API engine error: ") + error.what());
     } catch (...) {
       set_startup_error("Unknown Bot API native engine error");
     }

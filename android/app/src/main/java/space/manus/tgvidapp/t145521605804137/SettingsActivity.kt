@@ -37,7 +37,7 @@ class SettingsActivity : Activity() {
         val scroll = ScrollView(this).apply { setBackgroundColor(BG); isFillViewport = true }
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(24), dp(28), dp(24), dp(36))
+            setPadding(dp(24), dp(42), dp(24), dp(36))
         }
         scroll.addView(content)
         val back = TextView(this).apply {
@@ -50,18 +50,11 @@ class SettingsActivity : Activity() {
         content.addView(back)
         content.addView(text("APP ဆက်တင်များ", 11, ACCENT, true))
         content.addView(text("Telegram API", 31, WHITE, true).apply { setPadding(0, dp(7), 0, dp(9)) })
-        content.addView(text("API ID, API Hash နဲ့ Bot Token ကို ထည့်ပါ။ တန်ဖိုးတွေ Android Keystore ဖြင့် encryption လုပ်ပြီး ဒီစက်မှာသာ သိမ်းဆည်းပါတယ်။", 14, MUTED, false).apply {
-            setPadding(0, 0, 0, dp(24))
-        })
-
         apiIdInput = addField(content, "API ID", InputType.TYPE_CLASS_NUMBER)
         apiHashInput = addField(content, "API Hash", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
         botTokenInput = addField(content, "Bot Token", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
 
         content.addView(text("Download ပြိုင်တူလုပ်ဆောင်မှု", 15, WHITE, true).apply { setPadding(0, dp(8), 0, dp(7)) })
-        content.addView(text("တစ်ချိန်တည်း download လုပ်မည့် အများဆုံးဖိုင်အရေအတွက် (1–4)", 12, MUTED, false).apply {
-            setPadding(0, 0, 0, dp(8))
-        })
         parallelismSpinner = Spinner(this).apply {
             adapter = ArrayAdapter(
                 this@SettingsActivity,
@@ -90,9 +83,6 @@ class SettingsActivity : Activity() {
             setOnClickListener { saveCredentials() }
         }
         content.addView(save, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(54)).apply { topMargin = dp(18) })
-        content.addView(text("Telethon က public post မှ file_id ကို ရယူပါတယ်။ ဗီဒီယိုကို app အတွင်း Bot API Server က ရယူပြီး Download/TGMovies ထဲသို့ သိမ်းပါတယ်။ Remote fetch အတွင်း server က byte callback မပေးတဲ့အတွက် ရာခိုင်နှုန်းကို ဖိုင်သိမ်းဆည်းနေချိန်မှသာ ပြပါမယ်။", 12, MUTED, false).apply {
-            setPadding(0, dp(18), 0, 0)
-        })
         return scroll
     }
 
@@ -103,7 +93,7 @@ class SettingsActivity : Activity() {
             setSingleLine(true)
             setTextColor(WHITE)
             setHintTextColor(0xff687780.toInt())
-            hint = "$label ထည့်ပါ"
+            hint = ""
             textSize = 15f
             setPadding(dp(15), 0, dp(15), 0)
             background = rounded(0xff121a20.toInt(), 14, 0xff27343a.toInt())

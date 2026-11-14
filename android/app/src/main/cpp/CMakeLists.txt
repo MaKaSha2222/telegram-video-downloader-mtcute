@@ -28,10 +28,12 @@ set(TELEGRAM_BOT_API_SOURCES
 add_library(localbotapi SHARED
   local_bot_api_jni.cpp
   local_bot_api_engine.cpp
+  local_bot_api_progress.cpp
   ${TELEGRAM_BOT_API_SOURCES}
 )
 
 target_include_directories(localbotapi PRIVATE
+  "${CMAKE_CURRENT_LIST_DIR}"
   "${TELEGRAM_BOT_API_ROOT}"
   "${TELEGRAM_BOT_API_ROOT}/td"
   "${TELEGRAM_BOT_API_ROOT}/td/tdactor"

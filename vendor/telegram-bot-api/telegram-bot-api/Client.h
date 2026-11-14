@@ -1097,7 +1097,7 @@ class Client final : public WebhookActor::Callback {
                                                          object_ptr<td_api::InputMessageContent> input_message_content,
                                                          PromisedQueryPtr query);
 
-  void do_get_file(object_ptr<td_api::file> file, PromisedQueryPtr query);
+  void do_get_file(object_ptr<td_api::file> file, PromisedQueryPtr query, td::string bot_file_id);
 
   bool is_file_being_downloaded(int32 file_id) const;
   void on_file_download(int32 file_id, td::Result<object_ptr<td_api::file>> r_file);

@@ -5,6 +5,7 @@
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
 #include "telegram-bot-api/Client.h"
+#include "local_bot_api_progress.h"
 
 #include "telegram-bot-api/ClientParameters.h"
 
@@ -9841,6 +9842,10 @@ void Client::on_update_file(object_ptr<td_api::file> file) {
   if (!is_file_being_downloaded(file_id)) {
     return;
   }
+  local_bot_api::update_download_progress(
+      file_id, local_bot_api::DownloadProgress{file->local_->downloaded_size_, file->size_, file->expected_size_,
+                                               file->local_->is_downloading_active_,
+                                               file->local_->is_downloading_completed_});
   if (!parameters_->local_mode_ && file->local_->downloaded_size_ > MAX_DOWNLOAD_FILE_SIZE) {
     if (file->local_->is_downloading_active_) {
       send_request(make_object<td_api::cancelDownloadFile>(file_id, false),
@@ -17660,19 +17665,23 @@ td::Status Client::process_get_webhook_info_query(PromisedQueryPtr &query) {
 
 td::Status Client::process_get_file_query(PromisedQueryPtr &query) {
   td::string file_id = query->arg("file_id").str();
-  check_remote_file_id(file_id, std::move(query), [this](object_ptr<td_api::file> file, PromisedQueryPtr query) {
-    do_get_file(std::move(file), std::move(query));
+  check_remote_file_id(file_id, std::move(query), [this, file_id](object_ptr<td_api::file> file, PromisedQueryPtr query) {
+    do_get_file(std::move(file), std::move(query), file_id);
   });
   return td::Status::OK();
 }
 
-void Client::do_get_file(object_ptr<td_api::file> file, PromisedQueryPtr query) {
+void Client::do_get_file(object_ptr<td_api::file> file, PromisedQueryPtr query, td::string bot_file_id) {
   if (!parameters_->local_mode_ &&
       td::max(file->expected_size_, file->local_->downloaded_size_) > MAX_DOWNLOAD_FILE_SIZE) {  // speculative check
     return fail_query(400, "Bad Request: file is too big", std::move(query));
   }
 
   auto file_id = file->id_;
+  local_bot_api::begin_download_progress(
+      bot_file_id, file_id,
+      local_bot_api::DownloadProgress{file->local_->downloaded_size_, file->size_, file->expected_size_,
+                                      file->local_->is_downloading_active_, file->local_->is_downloading_completed_});
   file_download_listeners_[file_id].push_back(std::move(query));
   send_request(make_object<td_api::downloadFile>(file_id, 1, 0, 0, false),
                td::make_unique<TdOnDownloadFileCallback>(this, file_id));

@@ -1,9 +1,8 @@
 package expo.modules.localbotapi
 
 /**
- * JNI compatibility shim for the prebuilt liblocalbotapi.so bundled in the original AAR.
- * This class has no Expo dependency; its package and native signatures must match the
- * exported symbols in that already-compiled ARM64 library.
+ * JNI compatibility shim for the locally built liblocalbotapi.so.
+ * This class has no Expo dependency; its package and native signatures match the C++ exports.
  */
 class LocalBotApiModule {
     companion object {
@@ -21,5 +20,7 @@ class LocalBotApiModule {
 
         @JvmStatic external fun nativeStop()
         @JvmStatic external fun nativeIsRunning(): Boolean
+        @JvmStatic external fun nativeGetDownloadProgress(botFileId: String): String
+        @JvmStatic external fun nativeClearDownloadProgress(botFileId: String)
     }
 }
